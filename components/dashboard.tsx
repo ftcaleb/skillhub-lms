@@ -13,7 +13,11 @@ const filters: { label: string; value: "all" | CourseStatus }[] = [
   { label: "Completed", value: "completed" },
 ]
 
-export function Dashboard() {
+interface DashboardProps {
+  onOpenCourse: (courseId: string) => void
+}
+
+export function Dashboard({ onOpenCourse }: DashboardProps) {
   const [activeFilter, setActiveFilter] = useState<"all" | CourseStatus>("all")
 
   const filteredCourses = courses.filter((course) =>
@@ -76,7 +80,13 @@ export function Dashboard() {
       {/* Bento grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {filteredCourses.map((course, index) => (
-          <CourseCard key={course.id} course={course} index={index} priority={index < 3} />
+          <CourseCard
+            key={course.id}
+            course={course}
+            index={index}
+            priority={index < 3}
+            onOpen={() => onOpenCourse(course.id)}
+          />
         ))}
       </div>
 
