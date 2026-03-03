@@ -1,7 +1,8 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
   Award,
@@ -11,11 +12,12 @@ import {
   Package,
   Menu,
   X,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+  LogOut,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
-type ActiveView = "dashboard" | "certifications" | "profile"
+type ActiveView = 'dashboard' | 'certifications' | 'profile'
 
 interface AppSidebarProps {
   activeView: ActiveView
@@ -23,14 +25,25 @@ interface AppSidebarProps {
 }
 
 const navItems = [
-  { id: "dashboard" as const, label: "My Courses", icon: LayoutDashboard },
-  { id: "certifications" as const, label: "Certifications", icon: Award },
-  { id: "profile" as const, label: "Profile", icon: User },
+  { id: 'dashboard' as const, label: 'My Courses', icon: LayoutDashboard },
+  { id: 'certifications' as const, label: 'Certifications', icon: Award },
+  { id: 'profile' as const, label: 'Profile', icon: User },
 ]
 
 export function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  async function handleLogout() {
+    setLoggingOut(true)
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } finally {
+      router.push('/login')
+    }
+  }
 
   return (
     <>
@@ -62,13 +75,13 @@ export function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
       <motion.aside
         initial={false}
         animate={{ width: collapsed ? 72 : 240 }}
-        transition={{ duration: 0.2, ease: "easeInOut" }}
+        transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-dvh flex-col border-r border-sidebar-border bg-sidebar",
-          "max-md:translate-x-[-100%] max-md:w-[240px]",
-          mobileOpen && "max-md:translate-x-0"
+          'fixed left-0 top-0 z-50 flex h-dvh flex-col border-r border-sidebar-border bg-sidebar',
+          'max-md:translate-x-[-100%] max-md:w-[240px]',
+          mobileOpen && 'max-md:translate-x-0',
         )}
-        style={{ transition: "transform 0.2s ease" }}
+        style={{ transition: 'transform 0.2s ease' }}
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
@@ -80,7 +93,7 @@ export function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
               {!collapsed && (
                 <motion.span
                   initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
+                  animate={{ opacity: 1, width: 'auto' }}
                   exit={{ opacity: 0, width: 0 }}
                   className="whitespace-nowrap text-sm font-semibold tracking-tight text-sidebar-foreground"
                 >
@@ -103,7 +116,11 @@ export function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex flex-1 flex-col gap-1 px-3 py-4" role="navigation" aria-label="Main navigation">
+        <nav
+          className="flex flex-1 flex-col gap-1 px-3 py-4"
+          role="navigation"
+          aria-label="Main navigation"
+        >
           {navItems.map((item) => {
             const isActive = activeView === item.id
             return (
@@ -114,19 +131,17 @@ export function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
                   setMobileOpen(false)
                 }}
                 className={cn(
-                  "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  isActive
-                    ? "text-sidebar-primary"
-                    : "text-sidebar-foreground/70"
+                  'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  isActive ? 'text-sidebar-primary' : 'text-sidebar-foreground/70',
                 )}
-                aria-current={isActive ? "page" : undefined}
+                aria-current={isActive ? 'page' : undefined}
               >
                 {isActive && (
                   <motion.div
                     layoutId="sidebar-active"
                     className="absolute inset-0 rounded-lg bg-sidebar-accent"
-                    transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
+                    transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
                   />
                 )}
                 <item.icon className="relative z-10 h-[18px] w-[18px] shrink-0" />
@@ -134,7 +149,7 @@ export function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
                   {!collapsed && (
                     <motion.span
                       initial={{ opacity: 0, width: 0 }}
-                      animate={{ opacity: 1, width: "auto" }}
+                      animate={{ opacity: 1, width: 'auto' }}
                       exit={{ opacity: 0, width: 0 }}
                       className="relative z-10 whitespace-nowrap"
                     >
@@ -147,6 +162,34 @@ export function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
           })}
         </nav>
 
+        {/* Logout button */}
+        <div className="border-t border-sidebar-border px-3 py-3">
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+              'text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-destructive',
+              loggingOut && 'opacity-50 cursor-not-allowed',
+            )}
+            aria-label="Sign out"
+          >
+            <LogOut className="h-[18px] w-[18px] shrink-0" />
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.span
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 'auto' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  className="whitespace-nowrap"
+                >
+                  {loggingOut ? 'Signing out…' : 'Sign Out'}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
+        </div>
+
         {/* Collapse toggle (desktop only) */}
         <div className="hidden md:flex border-t border-sidebar-border p-3">
           <Button
@@ -154,7 +197,7 @@ export function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
             size="icon"
             className="w-full text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />

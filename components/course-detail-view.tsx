@@ -1,136 +1,90 @@
-"use client"
+'use client'
 
-import { useState, useMemo } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import Image from "next/image"
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
-  Play,
-  FileText,
-  HelpCircle,
-  CheckCircle2,
-  Circle,
   ChevronDown,
   ChevronRight,
-  Clock,
   BookOpen,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { CircularProgress } from "@/components/circular-progress"
-import { VideoPlayer } from "@/components/course/video-player"
-import { ReadingContent } from "@/components/course/reading-content"
-import { QuizContent } from "@/components/course/quiz-content"
-import type { Course, CourseActivity, ActivityType } from "@/lib/types"
-
-const activityIcons: Record<ActivityType, typeof Play> = {
-  video: Play,
-  reading: FileText,
-  quiz: HelpCircle,
-}
-
-const activityLabels: Record<ActivityType, string> = {
-  video: "Video",
-  reading: "Reading",
-  quiz: "Quiz",
-}
+  AlertCircle,
+  RefreshCw,
+  Loader2,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { SanitizedHTML } from '@/components/sanitized-html'
+import { MoodleModuleRenderer } from '@/components/moodle-module-renderer'
+import type { MoodleCourse, MoodleSection } from '@/lib/moodle/types'
 
 interface CourseDetailViewProps {
-  course: Course
+  course: MoodleCourse
   onBack: () => void
 }
 
+function SectionsSkeleton() {
+  return (
+    <div className="flex flex-col gap-4 animate-pulse">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="rounded-xl border border-border bg-card p-4">
+          <div className="h-4 w-1/3 bg-secondary rounded mb-4" />
+          <div className="flex flex-col gap-3">
+            <div className="h-10 bg-secondary rounded-lg" />
+            <div className="h-10 bg-secondary rounded-lg" />
+            <div className="h-10 bg-secondary rounded-lg" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
-  const modules = course.modules || []
+  const router = useRouter()
+  const [sections, setSections] = useState<MoodleSection[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set())
 
-  // Find the first incomplete activity as default
-  const firstIncomplete = useMemo(() => {
-    for (const mod of modules) {
-      for (const act of mod.activities) {
-        if (!act.completed) return act.id
+  const fetchContents = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/courses/${course.id}/contents`)
+      if (res.status === 401) {
+        router.push('/login')
+        return
       }
-    }
-    return modules[0]?.activities[0]?.id || null
-  }, [modules])
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to fetch course contents.')
 
-  const [activeActivityId, setActiveActivityId] = useState<string | null>(firstIncomplete)
-  const [expandedModules, setExpandedModules] = useState<Set<string>>(() => {
-    // Expand the module that contains the active activity
-    const set = new Set<string>()
-    for (const mod of modules) {
-      for (const act of mod.activities) {
-        if (act.id === firstIncomplete) {
-          set.add(mod.id)
-          return set
-        }
-      }
+      const sectionsData = data as MoodleSection[]
+      setSections(sectionsData)
+      const allIds = sectionsData.map((s) => s.id)
+      setExpandedSections(new Set(allIds))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error.')
+    } finally {
+      setLoading(false)
     }
-    if (modules[0]) set.add(modules[0].id)
-    return set
-  })
-  const [completedActivities, setCompletedActivities] = useState<Set<string>>(() => {
-    const set = new Set<string>()
-    for (const mod of modules) {
-      for (const act of mod.activities) {
-        if (act.completed) set.add(act.id)
-      }
-    }
-    return set
-  })
-  const [outlineOpen, setOutlineOpen] = useState(true)
+  }, [course.id, router])
 
-  const activeActivity = useMemo(() => {
-    for (const mod of modules) {
-      for (const act of mod.activities) {
-        if (act.id === activeActivityId) return act
-      }
-    }
-    return null
-  }, [modules, activeActivityId])
+  useEffect(() => {
+    fetchContents()
+  }, [fetchContents])
 
-  const activeModule = useMemo(() => {
-    for (const mod of modules) {
-      for (const act of mod.activities) {
-        if (act.id === activeActivityId) return mod
-      }
-    }
-    return null
-  }, [modules, activeActivityId])
-
-  const toggleModule = (moduleId: string) => {
-    setExpandedModules((prev) => {
+  function toggleSection(sectionId: number) {
+    setExpandedSections((prev) => {
       const next = new Set(prev)
-      if (next.has(moduleId)) next.delete(moduleId)
-      else next.add(moduleId)
+      if (next.has(sectionId)) next.delete(sectionId)
+      else next.add(sectionId)
       return next
     })
   }
 
-  const handleActivitySelect = (activity: CourseActivity, moduleId: string) => {
-    setActiveActivityId(activity.id)
-    if (!expandedModules.has(moduleId)) {
-      setExpandedModules((prev) => new Set(prev).add(moduleId))
-    }
-  }
-
-  const handleMarkComplete = (activityId: string) => {
-    setCompletedActivities((prev) => new Set(prev).add(activityId))
-    // Auto-advance to next activity
-    const allActivities = modules.flatMap((m) => m.activities.map((a) => ({ ...a, moduleId: m.id })))
-    const currentIndex = allActivities.findIndex((a) => a.id === activityId)
-    if (currentIndex >= 0 && currentIndex < allActivities.length - 1) {
-      const next = allActivities[currentIndex + 1]
-      setActiveActivityId(next.id)
-      if (!expandedModules.has(next.moduleId)) {
-        setExpandedModules((prev) => new Set(prev).add(next.moduleId))
-      }
-    }
-  }
-
-  // Calculate live progress
-  const totalActivities = modules.reduce((sum, m) => sum + m.activities.length, 0)
-  const completedCount = completedActivities.size
-  const liveProgress = totalActivities > 0 ? Math.round((completedCount / totalActivities) * 100) : 0
+  const progress = course.progress ?? 0
+  const visibleSections = sections
 
   return (
     <div className="flex flex-col gap-0">
@@ -152,239 +106,169 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
         </Button>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="hidden sm:block relative h-16 w-24 shrink-0 overflow-hidden rounded-lg">
-              <Image
-                src={course.thumbnail}
-                alt={course.title}
-                fill
-                className="object-cover"
-                sizes="96px"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <h1 className="text-xl font-bold tracking-tight text-foreground text-balance">
-                {course.title}
-              </h1>
-              <p className="text-sm text-muted-foreground">{course.instructor}</p>
-              {course.description && (
-                <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground/80 line-clamp-2">
-                  {course.description}
+          <div className="flex flex-col gap-1">
+            <h1 className="text-xl font-bold tracking-tight text-foreground text-balance">
+              {course.displayname || course.fullname}
+            </h1>
+            <p className="text-sm text-muted-foreground">{course.shortname}</p>
+            {course.summary && (
+              <div className="mt-2 max-w-xl">
+                <SanitizedHTML
+                  html={course.summary}
+                  className="text-xs leading-relaxed text-muted-foreground/80 [&_p]:mb-1 [&_a]:text-primary [&_a]:underline"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Progress ring */}
+          {course.hasprogress && (
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="relative h-14 w-14">
+                <svg viewBox="0 0 40 40" className="h-full w-full -rotate-90">
+                  <circle
+                    cx="20" cy="20" r="16"
+                    fill="none" strokeWidth="3"
+                    className="stroke-secondary"
+                  />
+                  <circle
+                    cx="20" cy="20" r="16"
+                    fill="none" strokeWidth="3"
+                    strokeDasharray={`${(progress / 100) * (2 * Math.PI * 16)} ${2 * Math.PI * 16}`}
+                    strokeLinecap="round"
+                    className="stroke-primary transition-all duration-700"
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-foreground">
+                  {Math.round(progress)}%
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground">Progress</p>
+                <p>
+                  {visibleSections.length} section{visibleSections.length !== 1 ? 's' : ''}
                 </p>
-              )}
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <CircularProgress value={liveProgress} size={48} strokeWidth={3.5} />
-            <div className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">{completedCount}</span>/{totalActivities} activities
-            </div>
-          </div>
+          )}
         </div>
       </motion.div>
 
-      {/* Main content area */}
-      <div className="flex flex-col lg:flex-row gap-0 mt-6">
-        {/* Course Outline Sidebar */}
-        <div className="w-full lg:w-80 shrink-0 lg:pr-6 lg:border-r lg:border-border">
-          <button
-            className="flex w-full items-center justify-between py-2 text-sm font-semibold text-foreground lg:cursor-default"
-            onClick={() => setOutlineOpen(!outlineOpen)}
-          >
-            <span className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-primary" />
-              Course Outline
-            </span>
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 text-muted-foreground transition-transform lg:hidden",
-                outlineOpen && "rotate-180"
-              )}
-            />
-          </button>
+      {/* Content */}
+      <div className="mt-6">
+        {loading && <SectionsSkeleton />}
 
-          <AnimatePresence initial={false}>
-            {outlineOpen && (
-              <motion.nav
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden lg:!h-auto lg:!opacity-100"
-                aria-label="Course outline"
-              >
-                <div className="flex flex-col gap-1 py-3 lg:max-h-[calc(100dvh-320px)] lg:overflow-y-auto lg:pr-2">
-                  {modules.map((mod) => {
-                    const isExpanded = expandedModules.has(mod.id)
-                    const modCompletedCount = mod.activities.filter((a) =>
-                      completedActivities.has(a.id)
-                    ).length
-                    const modTotal = mod.activities.length
-                    const allDone = modCompletedCount === modTotal
+        {error && (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+              <AlertCircle className="h-6 w-6 text-destructive" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Failed to load content</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs">{error}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchContents} className="gap-2">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry
+            </Button>
+          </div>
+        )}
 
-                    return (
-                      <div key={mod.id} className="flex flex-col">
-                        <button
-                          onClick={() => toggleModule(mod.id)}
-                          className={cn(
-                            "flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold transition-colors",
-                            "hover:bg-secondary/60",
-                            isExpanded ? "text-foreground" : "text-muted-foreground"
+        {!loading && !error && visibleSections.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <BookOpen className="h-10 w-10 text-muted-foreground/30 mb-3" />
+            <p className="text-sm font-medium text-foreground">No content available</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              This course has no visible sections or modules.
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && visibleSections.length > 0 && (
+          <div className="flex flex-col gap-4">
+            {visibleSections.map((section, sectionIndex) => {
+              const isExpanded = expandedSections.has(section.id)
+              const visibleModules = section.modules ?? []
+
+              return (
+                <motion.div
+                  key={section.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: sectionIndex * 0.06 }}
+                  className="rounded-xl border border-border bg-card overflow-hidden"
+                >
+                  {/* Section header */}
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-secondary/40 transition-colors"
+                    aria-expanded={isExpanded}
+                  >
+                    <ChevronRight
+                      className={cn(
+                        'h-4 w-4 text-muted-foreground transition-transform shrink-0',
+                        isExpanded && 'rotate-90',
+                      )}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {section.name || `Section ${section.section + 1}`}
+                      </p>
+                      {section.summary && !isExpanded && (
+                        <SanitizedHTML
+                          html={section.summary}
+                          className="mt-0.5 text-xs text-muted-foreground line-clamp-1 [&_*]:text-inherit [&_p]:m-0"
+                        />
+                      )}
+                    </div>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {visibleModules.length} item{visibleModules.length !== 1 ? 's' : ''}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 text-muted-foreground transition-transform shrink-0',
+                        isExpanded && 'rotate-180',
+                      )}
+                    />
+                  </button>
+
+                  {/* Section content */}
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-5 pb-5 flex flex-col gap-3 border-t border-border/50">
+                          {section.summary && (
+                            <SanitizedHTML
+                              html={section.summary}
+                              className="pt-4 text-xs leading-relaxed text-muted-foreground [&_a]:text-primary [&_a]:underline [&_p]:mb-1"
+                            />
                           )}
-                        >
-                          <ChevronRight
-                            className={cn(
-                              "h-3.5 w-3.5 shrink-0 transition-transform",
-                              isExpanded && "rotate-90"
-                            )}
-                          />
-                          <span className="flex-1 line-clamp-2">{mod.title}</span>
-                          <span
-                            className={cn(
-                              "ml-2 shrink-0 text-[10px] font-medium",
-                              allDone ? "text-emerald-400" : "text-muted-foreground"
-                            )}
-                          >
-                            {modCompletedCount}/{modTotal}
-                          </span>
-                        </button>
-
-                        <AnimatePresence initial={false}>
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.15 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="flex flex-col gap-0.5 py-1 pl-5">
-                                {mod.activities.map((activity) => {
-                                  const Icon = activityIcons[activity.activityType]
-                                  const isActive = activeActivityId === activity.id
-                                  const isDone = completedActivities.has(activity.id)
-
-                                  return (
-                                    <button
-                                      key={activity.id}
-                                      onClick={() => handleActivitySelect(activity, mod.id)}
-                                      className={cn(
-                                        "flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs transition-colors",
-                                        isActive
-                                          ? "bg-primary/10 text-primary font-medium"
-                                          : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
-                                      )}
-                                    >
-                                      {isDone ? (
-                                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                                      ) : isActive ? (
-                                        <div className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-primary bg-primary/20" />
-                                      ) : (
-                                        <Circle className="h-3.5 w-3.5 shrink-0 text-border" />
-                                      )}
-                                      <span className="flex-1 line-clamp-1">{activity.title}</span>
-                                      <span className="ml-auto shrink-0 flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                                        <Icon className="h-3 w-3" />
-                                        {activityLabels[activity.activityType]}
-                                      </span>
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            </motion.div>
+                          {visibleModules.length > 0 ? (
+                            <div className="flex flex-col gap-2 pt-2">
+                              {visibleModules.map((mod) => (
+                                <MoodleModuleRenderer key={mod.id} module={mod} />
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground py-4 text-center">
+                              No visible activities in this section.
+                            </p>
                           )}
-                        </AnimatePresence>
-                      </div>
-                    )
-                  })}
-                </div>
-              </motion.nav>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Content Area */}
-        <div className="flex-1 min-w-0 lg:pl-6 pt-4 lg:pt-0">
-          <AnimatePresence mode="wait">
-            {activeActivity ? (
-              <motion.div
-                key={activeActivity.id}
-                initial={{ opacity: 0, x: 12 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -12 }}
-                transition={{ duration: 0.2 }}
-              >
-                {/* Activity header */}
-                <div className="mb-5 flex flex-col gap-1">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{activeModule?.title}</span>
-                  </div>
-                  <h2 className="text-lg font-bold text-foreground">{activeActivity.title}</h2>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    {activeActivity.data.type === "video" && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {activeActivity.data.duration}
-                      </span>
+                        </div>
+                      </motion.div>
                     )}
-                    {activeActivity.data.type === "reading" && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {activeActivity.data.estimatedMinutes} min read
-                      </span>
-                    )}
-                    {activeActivity.data.type === "quiz" && (
-                      <span className="flex items-center gap-1">
-                        <HelpCircle className="h-3 w-3" />
-                        {activeActivity.data.questions.length} questions
-                      </span>
-                    )}
-                    {completedActivities.has(activeActivity.id) && (
-                      <span className="flex items-center gap-1 text-emerald-400">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Completed
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Activity content */}
-                {activeActivity.data.type === "video" && (
-                  <VideoPlayer
-                    activity={activeActivity.data}
-                    isCompleted={completedActivities.has(activeActivity.id)}
-                    onMarkComplete={() => handleMarkComplete(activeActivity.id)}
-                  />
-                )}
-                {activeActivity.data.type === "reading" && (
-                  <ReadingContent
-                    activity={activeActivity.data}
-                    isCompleted={completedActivities.has(activeActivity.id)}
-                    onMarkComplete={() => handleMarkComplete(activeActivity.id)}
-                  />
-                )}
-                {activeActivity.data.type === "quiz" && (
-                  <QuizContent
-                    activity={activeActivity.data}
-                    isCompleted={completedActivities.has(activeActivity.id)}
-                    onMarkComplete={() => handleMarkComplete(activeActivity.id)}
-                  />
-                )}
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-20 text-center"
-              >
-                <BookOpen className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  Select an activity from the course outline to get started.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                  </AnimatePresence>
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

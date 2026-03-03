@@ -1,69 +1,123 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import { motion } from "framer-motion"
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 import {
   User,
   Mail,
-  Building2,
-  MapPin,
+  Globe,
   Camera,
   Pencil,
   Check,
   X,
-  Shield,
-  CalendarDays,
-} from "lucide-react"
-import { userProfile } from "@/lib/data"
-import { MilestoneTimeline } from "@/components/milestone-timeline"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+  AlertCircle,
+  Loader2,
+} from 'lucide-react'
+import { MilestoneTimeline } from '@/components/milestone-timeline'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+interface MoodleProfile {
+  userid: number
+  fullname: string
+  firstname: string
+  lastname: string
+  username: string
+  userpictureurl: string
+  sitename: string
+  email: string | null
+}
+
+// Editing only modifies local state — Moodle profile mutation
+// requires core_user_update_users which is not in the service whitelist
+interface EditableFields {
+  fullname: string
+}
 
 export function ProfileView() {
+  const router = useRouter()
+  const [profile, setProfile] = useState<MoodleProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [formData, setFormData] = useState({
-    name: userProfile.name,
-    title: userProfile.title,
-    email: userProfile.email,
-    company: userProfile.company,
-    location: userProfile.location,
-    bio: userProfile.bio,
-  })
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [editData, setEditData] = useState<EditableFields>({ fullname: '' })
 
-  function validate() {
-    const newErrors: Record<string, string> = {}
-    if (!formData.name.trim()) newErrors.name = "Name is required"
-    if (!formData.email.trim()) newErrors.email = "Email is required"
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Invalid email"
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+  useEffect(() => {
+    async function fetchProfile() {
+      try {
+        const res = await fetch('/api/auth/me')
+        if (res.status === 401) {
+          router.push('/login')
+          return
+        }
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Failed to load profile.')
+        setProfile(data)
+        setEditData({ fullname: data.fullname })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProfile()
+  }, [router])
 
   function handleSave() {
-    if (validate()) {
-      setIsEditing(false)
-      setErrors({})
-    }
+    if (!editData.fullname.trim()) return
+    setProfile((p) => p ? { ...p, fullname: editData.fullname } : p)
+    setIsEditing(false)
   }
 
   function handleCancel() {
-    setFormData({
-      name: userProfile.name,
-      title: userProfile.title,
-      email: userProfile.email,
-      company: userProfile.company,
-      location: userProfile.location,
-      bio: userProfile.bio,
-    })
+    setEditData({ fullname: profile?.fullname ?? '' })
     setIsEditing(false)
-    setErrors({})
   }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-8 max-w-2xl">
+        <div className="rounded-2xl border border-border/50 p-8 animate-pulse">
+          <div className="flex items-center gap-5">
+            <div className="h-20 w-20 rounded-full bg-secondary shrink-0" />
+            <div className="flex-1 flex flex-col gap-2">
+              <div className="h-5 w-40 bg-secondary rounded" />
+              <div className="h-3 w-24 bg-secondary rounded" />
+              <div className="h-3 w-32 bg-secondary rounded" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6 animate-pulse">
+          <div className="h-4 w-28 bg-secondary rounded mb-5" />
+          <div className="flex flex-col gap-4">
+            {[1, 2, 3].map((i) => <div key={i} className="h-6 bg-secondary rounded" />)}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+          <AlertCircle className="h-6 w-6 text-destructive" />
+        </div>
+        <p className="text-sm font-medium text-foreground">Failed to load profile</p>
+        <p className="text-xs text-muted-foreground max-w-xs">{error}</p>
+      </div>
+    )
+  }
+
+  if (!profile) return null
+
+  const initials = `${profile.firstname?.[0] ?? ''}${profile.lastname?.[0] ?? ''}`.toUpperCase() || profile.username.substring(0, 2).toUpperCase()
 
   return (
     <div className="flex flex-col gap-8 max-w-2xl">
-      {/* Glassmorphism header */}
+      {/* Glassmorphism header card */}
       <motion.div
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -71,22 +125,32 @@ export function ProfileView() {
         className="relative overflow-hidden rounded-2xl border border-border/50 p-6 sm:p-8"
         style={{
           background:
-            "linear-gradient(135deg, rgba(245, 158, 11, 0.06) 0%, rgba(15, 23, 42, 0.4) 50%, rgba(100, 116, 139, 0.08) 100%)",
-          backdropFilter: "blur(20px)",
+            'linear-gradient(135deg, rgba(245,158,11,0.06) 0%, rgba(15,23,42,0.4) 50%, rgba(100,116,139,0.08) 100%)',
+          backdropFilter: 'blur(20px)',
         }}
       >
         {/* Decorative glow */}
         <div
           className="absolute -top-20 -right-20 h-40 w-40 rounded-full opacity-20"
-          style={{ background: "radial-gradient(circle, oklch(0.75 0.16 65), transparent)" }}
+          style={{ background: 'radial-gradient(circle, oklch(0.75 0.16 65), transparent)' }}
         />
 
         <div className="relative flex flex-col items-center gap-5 sm:flex-row sm:items-start">
           {/* Avatar */}
           <div className="group relative">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary/30 bg-secondary text-muted-foreground">
-              <User className="h-8 w-8" />
-            </div>
+            {profile.userpictureurl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profile.userpictureurl}
+                alt={profile.fullname}
+                className="h-20 w-20 rounded-full border-2 border-primary/30 object-cover bg-secondary"
+                onError={(e) => { e.currentTarget.style.display = 'none' }}
+              />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary/30 bg-secondary text-xl font-bold text-foreground">
+                {initials}
+              </div>
+            )}
             <button
               className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
               aria-label="Upload avatar"
@@ -98,14 +162,10 @@ export function ProfileView() {
           {/* Info */}
           <div className="flex-1 text-center sm:text-left">
             <h1 className="text-xl font-bold tracking-tight text-foreground">
-              {formData.name}
+              {isEditing ? editData.fullname || profile.fullname : profile.fullname}
             </h1>
-            <p className="mt-0.5 text-sm text-primary font-medium">
-              {formData.title}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formData.company} &middot; {formData.location}
-            </p>
+            <p className="mt-0.5 text-sm text-primary font-medium">@{profile.username}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{profile.sitename}</p>
           </div>
 
           {/* Edit toggle */}
@@ -117,7 +177,7 @@ export function ProfileView() {
               onClick={() => setIsEditing(true)}
             >
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
-              Edit Profile
+              Edit
             </Button>
           ) : (
             <div className="flex items-center gap-2">
@@ -143,98 +203,79 @@ export function ProfileView() {
         </div>
       </motion.div>
 
-      {/* Personal Details */}
+      {/* Account Details */}
       <motion.section
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
         className="rounded-xl border border-border bg-card p-6"
       >
-        <h2 className="text-sm font-semibold text-card-foreground mb-5">
-          Personal Details
-        </h2>
+        <h2 className="text-sm font-semibold text-card-foreground mb-5">Account Details</h2>
         <div className="grid gap-5">
           <FieldRow
             icon={User}
             label="Full Name"
-            value={formData.name}
+            value={isEditing ? editData.fullname : profile.fullname}
             isEditing={isEditing}
-            error={errors.name}
-            onChange={(v) => setFormData((p) => ({ ...p, name: v }))}
+            onChange={(v) => setEditData((p) => ({ ...p, fullname: v }))}
           />
           <FieldRow
-            icon={Mail}
-            label="Email"
-            value={formData.email}
-            isEditing={isEditing}
-            error={errors.email}
-            onChange={(v) => setFormData((p) => ({ ...p, email: v }))}
+            icon={User}
+            label="Username"
+            value={profile.username}
+            isEditing={false}
           />
+          {profile.email && (
+            <FieldRow
+              icon={Mail}
+              label="Email"
+              value={profile.email}
+              isEditing={false}
+            />
+          )}
           <FieldRow
-            icon={Building2}
-            label="Company"
-            value={formData.company}
-            isEditing={isEditing}
-            onChange={(v) => setFormData((p) => ({ ...p, company: v }))}
-          />
-          <FieldRow
-            icon={MapPin}
-            label="Location"
-            value={formData.location}
-            isEditing={isEditing}
-            onChange={(v) => setFormData((p) => ({ ...p, location: v }))}
+            icon={Globe}
+            label="Learning Platform"
+            value={profile.sitename}
+            isEditing={false}
           />
         </div>
       </motion.section>
 
-      {/* Professional Credentials */}
+      {/* Moodle ID card */}
       <motion.section
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.2 }}
         className="rounded-xl border border-border bg-card p-6"
       >
-        <h2 className="text-sm font-semibold text-card-foreground mb-5">
-          Professional Credentials
-        </h2>
-        <div className="grid gap-3">
-          {userProfile.credentials.map((cred) => (
-            <div
-              key={cred.name}
-              className="flex items-center gap-4 rounded-lg border border-border bg-secondary/50 px-4 py-3 transition-colors hover:bg-secondary"
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                <Shield className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-card-foreground">{cred.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {cred.issuer}
-                </p>
-              </div>
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
-                <CalendarDays className="h-3 w-3" />
-                {cred.dateEarned}
-              </div>
-              <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-400 border border-emerald-500/20">
-                {cred.status}
-              </span>
-            </div>
-          ))}
+        <h2 className="text-sm font-semibold text-card-foreground mb-3">Moodle Identity</h2>
+        <div className="flex items-center gap-3 rounded-lg bg-secondary/50 px-4 py-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+            <span className="text-xs font-bold text-primary">#</span>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">User ID</p>
+            <p className="text-sm font-mono font-medium text-card-foreground">{profile.userid}</p>
+          </div>
         </div>
       </motion.section>
 
-      {/* Milestone Timeline */}
+      {/* Career Milestones — static placeholder (Moodle badges/completions could populate this) */}
       <motion.section
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
         className="rounded-xl border border-border bg-card p-6"
       >
-        <h2 className="text-sm font-semibold text-card-foreground mb-5">
-          Career Milestone Tracker
-        </h2>
-        <MilestoneTimeline milestones={userProfile.milestones} />
+        <h2 className="text-sm font-semibold text-card-foreground mb-5">Career Milestones</h2>
+        <MilestoneTimeline
+          milestones={[
+            { title: 'Joined the platform', date: 'Account created', completed: true },
+            { title: 'First course enrolled', date: 'Via Moodle enrolment', completed: true },
+            { title: 'First course completed', date: 'Pending completion', completed: false },
+          ]}
+        />
       </motion.section>
     </div>
   )
@@ -245,30 +286,24 @@ interface FieldRowProps {
   label: string
   value: string
   isEditing: boolean
-  error?: string
-  onChange?: (value: string) => void
+  onChange?: (v: string) => void
 }
 
-function FieldRow({ icon: Icon, label, value, isEditing, error, onChange }: FieldRowProps) {
+function FieldRow({ icon: Icon, label, value, isEditing, onChange }: FieldRowProps) {
   return (
     <div className="grid gap-1.5">
       <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </Label>
-      {isEditing ? (
-        <div>
-          <Input
-            value={value}
-            onChange={(e) => onChange?.(e.target.value)}
-            className="h-9 bg-input border-border text-foreground text-sm placeholder:text-muted-foreground"
-          />
-          {error && (
-            <p className="mt-1 text-xs text-destructive">{error}</p>
-          )}
-        </div>
+      {isEditing && onChange ? (
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-9 bg-input border-border text-foreground text-sm"
+        />
       ) : (
-        <p className="text-sm text-card-foreground">{value}</p>
+        <p className="text-sm text-card-foreground">{value || '—'}</p>
       )}
     </div>
   )
