@@ -116,6 +116,7 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                 <SanitizedHTML
                   html={course.summary}
                   className="text-xs leading-relaxed text-muted-foreground/80 [&_p]:mb-1 [&_a]:text-primary [&_a]:underline"
+                  stripImages
                 />
               </div>
             )}
@@ -218,6 +219,7 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                         <SanitizedHTML
                           html={section.summary}
                           className="mt-0.5 text-xs text-muted-foreground line-clamp-1 [&_*]:text-inherit [&_p]:m-0"
+                          stripImages
                         />
                       )}
                     </div>

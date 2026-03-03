@@ -97,7 +97,7 @@ export function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
                   exit={{ opacity: 0, width: 0 }}
                   className="whitespace-nowrap text-sm font-semibold tracking-tight text-sidebar-foreground"
                 >
-                  Nexus Supply Chain
+                  SkillHub International
                 </motion.span>
               )}
             </AnimatePresence>

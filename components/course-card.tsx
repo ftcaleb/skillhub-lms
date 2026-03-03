@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Clock, Play, CheckCircle2, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -40,9 +41,11 @@ function getCourseImage(course: MoodleCourse): string | null {
 }
 
 export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProps) {
+  const [imgError, setImgError] = useState(false)
   const progress = course.progress ?? 0
   const isCompleted = progress >= 100
   const thumbnail = getCourseImage(course)
+  const showThumbnail = thumbnail !== null && !imgError
   const accentClass = courseColor(course.shortname)
   // Extract just the color portion (e.g. "text-blue-400") for the abbreviation
   const textColor = accentClass.split(' ')[0]
@@ -65,19 +68,16 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
     >
       {/* Thumbnail / Color block */}
       <div className="relative aspect-[16/9] overflow-hidden bg-secondary">
-        {thumbnail ? (
+        {showThumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={thumbnail}
+            src={thumbnail!}
             alt={`${course.displayname} thumbnail`}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={(e) => {
-              // If proxy fails, hide the img and show the fallback
-              e.currentTarget.style.display = 'none'
-            }}
+            onError={() => setImgError(true)}
           />
         ) : (
-          /* Styled fallback: course initials on gradient background */
+          /* Fallback: shown when no overviewfile or image load fails */
           <div
             className="flex h-full w-full items-center justify-center"
             style={{
@@ -124,6 +124,7 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
               <SanitizedHTML
                 html={course.summary}
                 className="text-xs text-muted-foreground line-clamp-2 [&_*]:text-inherit [&_p]:m-0"
+                stripImages
               />
             </div>
           )}
