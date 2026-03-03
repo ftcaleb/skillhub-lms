@@ -20,9 +20,11 @@ const pillarColors: Record<string, string> = {
 interface CourseCardProps {
   course: Course
   index: number
+  priority?: boolean
+  onOpen?: () => void
 }
 
-export function CourseCard({ course, index, priority = false }: CourseCardProps & { priority?: boolean }) {
+export function CourseCard({ course, index, priority = false, onOpen }: CourseCardProps) {
   const isCompleted = course.status === "completed"
 
   return (
@@ -33,8 +35,13 @@ export function CourseCard({ course, index, priority = false }: CourseCardProps 
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card",
         "transition-all duration-300",
-        "hover:border-primary/30 hover:shadow-[0_0_30px_-5px] hover:shadow-primary/10 hover:-translate-y-0.5"
+        "hover:border-primary/30 hover:shadow-[0_0_30px_-5px] hover:shadow-primary/10 hover:-translate-y-0.5",
+        onOpen && "cursor-pointer"
       )}
+      onClick={onOpen}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={onOpen ? (e) => e.key === "Enter" && onOpen() : undefined}
     >
       {/* Thumbnail */}
       <div className="relative aspect-[16/9] overflow-hidden">
@@ -103,6 +110,10 @@ export function CourseCard({ course, index, priority = false }: CourseCardProps 
                 ? "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
             )}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpen?.()
+            }}
           >
             {isCompleted ? (
               "Review"

@@ -6,24 +6,47 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { Dashboard } from "@/components/dashboard"
 import { CertificationsView } from "@/components/certifications-view"
 import { ProfileView } from "@/components/profile-view"
+import { CourseDetailView } from "@/components/course-detail-view"
+import { getCourseById } from "@/lib/data"
 import { Bell, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-type ActiveView = "dashboard" | "certifications" | "profile"
+type ActiveView = "dashboard" | "certifications" | "profile" | "course-detail"
 
-const viewTitles: Record<ActiveView, string> = {
+const viewTitles: Record<string, string> = {
   dashboard: "Dashboard",
   certifications: "Certifications",
   profile: "Profile",
+  "course-detail": "Course",
 }
 
 export default function Home() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard")
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
+
+  const selectedCourse = selectedCourseId ? getCourseById(selectedCourseId) : null
+
+  const handleOpenCourse = (courseId: string) => {
+    setSelectedCourseId(courseId)
+    setActiveView("course-detail")
+  }
+
+  const handleBackToDashboard = () => {
+    setActiveView("dashboard")
+    setSelectedCourseId(null)
+  }
+
+  const handleNavigate = (view: "dashboard" | "certifications" | "profile") => {
+    setActiveView(view)
+    setSelectedCourseId(null)
+  }
 
   return (
     <div className="flex min-h-dvh bg-background">
-      <AppSidebar activeView={activeView} onNavigate={setActiveView} />
+      <AppSidebar
+        activeView={activeView === "course-detail" ? "dashboard" : activeView}
+        onNavigate={handleNavigate}
+      />
 
       {/* Main content area */}
       <main className="flex-1 md:ml-[240px] transition-[margin] duration-200">
@@ -34,7 +57,9 @@ export default function Home() {
           
           <div className="hidden md:block">
             <h2 className="text-sm font-medium text-foreground">
-              {viewTitles[activeView]}
+              {activeView === "course-detail" && selectedCourse
+                ? selectedCourse.title
+                : viewTitles[activeView]}
             </h2>
           </div>
 
@@ -61,8 +86,8 @@ export default function Home() {
               role="button"
               tabIndex={0}
               aria-label="User avatar"
-              onClick={() => setActiveView("profile")}
-              onKeyDown={(e) => e.key === "Enter" && setActiveView("profile")}
+              onClick={() => handleNavigate("profile")}
+              onKeyDown={(e) => e.key === "Enter" && handleNavigate("profile")}
             >
               AN
             </div>
@@ -73,15 +98,20 @@ export default function Home() {
         <div className="p-4 sm:p-8">
           <AnimatePresence mode="wait">
             <motion.div
-              key={activeView}
+              key={activeView === "course-detail" ? `course-${selectedCourseId}` : activeView}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
             >
-              {activeView === "dashboard" && <Dashboard />}
+              {activeView === "dashboard" && (
+                <Dashboard onOpenCourse={handleOpenCourse} />
+              )}
               {activeView === "certifications" && <CertificationsView />}
               {activeView === "profile" && <ProfileView />}
+              {activeView === "course-detail" && selectedCourse && (
+                <CourseDetailView course={selectedCourse} onBack={handleBackToDashboard} />
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
