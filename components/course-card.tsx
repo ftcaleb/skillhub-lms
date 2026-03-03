@@ -22,7 +22,7 @@ interface CourseCardProps {
   index: number
 }
 
-export function CourseCard({ course, index }: CourseCardProps) {
+export function CourseCard({ course, index, priority = false }: CourseCardProps & { priority?: boolean }) {
   const isCompleted = course.status === "completed"
 
   return (
@@ -42,6 +42,7 @@ export function CourseCard({ course, index }: CourseCardProps) {
           src={course.thumbnail}
           alt={`${course.title} course thumbnail`}
           fill
+          priority={priority}
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />

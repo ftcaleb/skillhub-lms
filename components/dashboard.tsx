@@ -76,7 +76,7 @@ export function Dashboard() {
       {/* Bento grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {filteredCourses.map((course, index) => (
-          <CourseCard key={course.id} course={course} index={index} />
+          <CourseCard key={course.id} course={course} index={index} priority={index < 3} />
         ))}
       </div>
 
