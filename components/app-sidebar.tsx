@@ -86,8 +86,8 @@ export function AppSidebar({ activeView, onNavigate }: AppSidebarProps) {
         {/* Logo */}
         <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
-              <Package className="h-4 w-4 text-primary-foreground" />
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg ">
+              <img src="/images/Logo.png" alt="SkillHub logo" className="h-14 w-14 object-contain" />
             </div>
             <AnimatePresence>
               {!collapsed && (
