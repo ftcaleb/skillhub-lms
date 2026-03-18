@@ -105,6 +105,57 @@ function UrlModule({ mod }: { mod: HydratedMoodleModule }) {
     // Prefer resourceDetail if available
     const externalUrl = mod.urlDetail?.externalurl ?? mod.url
     
+    // Try to extract YouTube/Vimeo video from URL
+    let youtubeId: string | null = null
+    let vimeoId: string | null = null
+
+    if (externalUrl) {
+        const youtubePatterns = [
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtu\.be\/)([^\s&?]+)/i,
+            /v[=\/]([^\s&?]+)/i,
+        ]
+        
+        for (const pattern of youtubePatterns) {
+            const match = externalUrl.match(pattern)
+            if (match?.[1]) {
+                youtubeId = match[1]
+                break
+            }
+        }
+
+        if (!youtubeId) {
+            const vimeoMatch = externalUrl.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+            if (vimeoMatch) vimeoId = vimeoMatch[1]
+        }
+    }
+
+    if (youtubeId || vimeoId) {
+        return (
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-cyan-500/20">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10">
+                        <Video className="h-3.5 w-3.5 text-cyan-400" />
+                    </div>
+                    <p className="text-sm font-medium text-card-foreground flex-1 truncate">{mod.name}</p>
+                    <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-cyan-400 transition-colors">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                </div>
+                <div className="p-4">
+                    <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+                        <iframe
+                            src={youtubeId ? `https://www.youtube.com/embed/${youtubeId}` : `https://player.vimeo.com/video/${vimeoId}`}
+                            title={mod.name}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                        />
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <a
             href={externalUrl}
@@ -146,20 +197,24 @@ function rewritePluginfileUrls(html: string): string {
  */
 function transformVideoLinksToIframes(html: string): string {
     // YouTube: watch?v=ID, youtu.be/ID, youtube.com/embed/ID
+    // More robust regex to handle any attributes and parameters like &list=
     html = html.replace(
-        /<a\s+href=["']?(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^"'\s&?]+)[^"']*?)["']?\s*>([^<]*)<\/a>/gi,
+        /<a\s+[^>]*href=["']?(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtu\.be\/)([^"'\s&?]+)[^"']*?)["']?[^>]*>([\s\S]*?)<\/a>/gi,
         (match, url, videoId, text) => {
             const id = videoId.trim()
-            return `<div class="video-embed"><iframe width="560" height="315" src="https://www.youtube.com/embed/${id}" title="${text.trim() || 'Video'}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
+            // If the text is just the URL or empty, use a generic label
+            const label = (text.includes('youtube.com') || !text.trim()) ? 'YouTube Video' : text.trim()
+            return `<div class="video-embed"><iframe width="560" height="315" src="https://www.youtube.com/embed/${id}" title="${label}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
         }
     )
 
     // Vimeo: vimeo.com/ID or player.vimeo.com/video/ID
     html = html.replace(
-        /<a\s+href=["']?(https?:\/\/(?:(?:www\.)?vimeo\.com|player\.vimeo\.com\/video)\/(\d+)[^"']*)["']?\s*>([^<]*)<\/a>/gi,
+        /<a\s+[^>]*href=["']?(https?:\/\/(?:(?:www\.)?vimeo\.com|player\.vimeo\.com\/video)\/(\d+)[^"']*)["']?[^>]*>([\s\S]*?)<\/a>/gi,
         (match, url, videoId, text) => {
             const id = videoId.trim()
-            return `<div class="video-embed"><iframe width="560" height="315" src="https://player.vimeo.com/video/${id}" title="${text.trim() || 'Video'}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
+            const label = (text.includes('vimeo.com') || !text.trim()) ? 'Vimeo Video' : text.trim()
+            return `<div class="video-embed"><iframe width="560" height="315" src="https://player.vimeo.com/video/${id}" title="${label}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
         }
     )
 
@@ -381,7 +436,13 @@ function QuizModule({ mod, courseId }: { mod: HydratedMoodleModule; courseId: nu
                     <p className="text-sm font-semibold text-card-foreground flex-1">{mod.name}</p>
                 </div>
                 <div className="p-4 sm:p-6">
-                    <QuizContent quizId={quiz.id} quizName={mod.name} courseId={courseId} />
+                    <QuizContent
+                        quizId={quiz.id}
+                        quizName={mod.name}
+                        courseId={courseId}
+                        timelimit={quiz.timelimit ?? 0}
+                        maxAttempts={quiz.attempts ?? 0}
+                    />
                 </div>
             </div>
         )

@@ -1,43 +1,67 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
+  ArrowRight,
   ChevronDown,
   ChevronRight,
   BookOpen,
   AlertCircle,
   RefreshCw,
-  Loader2,
+  CheckCircle2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { SanitizedHTML } from '@/components/sanitized-html'
 import { MoodleModuleRenderer } from '@/components/moodle-module-renderer'
-import type { MoodleCourse, HydratedMoodleSection } from '@/lib/moodle/types'
+import type { MoodleCourse, HydratedMoodleSection, HydratedMoodleModule } from '@/lib/moodle/types'
 
 interface CourseDetailViewProps {
   course: MoodleCourse
   onBack: () => void
 }
 
+function ShimmerSkeleton({ className }: { className?: string }) {
+  return <div className={cn('skeleton', className)} />
+}
+
 function SectionsSkeleton() {
   return (
-    <div className="flex flex-col gap-4 animate-pulse">
+    <div className="flex flex-col gap-4">
       {[1, 2, 3].map((i) => (
         <div key={i} className="rounded-xl border border-border bg-card p-4">
-          <div className="h-4 w-1/3 bg-secondary rounded mb-4" />
+          <ShimmerSkeleton className="h-4 w-1/3 mb-4" />
           <div className="flex flex-col gap-3">
-            <div className="h-10 bg-secondary rounded-lg" />
-            <div className="h-10 bg-secondary rounded-lg" />
-            <div className="h-10 bg-secondary rounded-lg" />
+            <ShimmerSkeleton className="h-10 rounded-lg" />
+            <ShimmerSkeleton className="h-10 rounded-lg" />
+            <ShimmerSkeleton className="h-10 rounded-lg" />
           </div>
         </div>
       ))}
     </div>
   )
+}
+
+/** Flatten all navigable modules from sections (skip labels) */
+function flattenModules(sections: HydratedMoodleSection[]): HydratedMoodleModule[] {
+  const modules: HydratedMoodleModule[] = []
+  for (const section of sections) {
+    for (const mod of section.modules) {
+      if (mod.modname !== 'label') {
+        modules.push(mod)
+      }
+    }
+  }
+  return modules
+}
+
+/** Check if a module is completed based on completiondata */
+function isModuleCompleted(mod: HydratedMoodleModule): boolean {
+  if (!mod.completiondata) return false
+  return mod.completiondata.state >= 1
 }
 
 export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
@@ -46,13 +70,12 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set())
+  const [activeModuleId, setActiveModuleId] = useState<number | null>(null)
 
   const fetchContents = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      // Use the hydration endpoint instead of basic contents
-      // This fetches all module details in one call (N+1 optimization)
       const res = await fetch(`/api/courses/${course.id}/hydrate`)
       if (res.status === 401) {
         router.push('/login')
@@ -76,6 +99,53 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
     fetchContents()
   }, [fetchContents])
 
+  // Flat list of navigable modules (for prev/next)
+  const allModules = useMemo(() => flattenModules(sections), [sections])
+
+  // Completion stats
+  const completedModules = useMemo(
+    () => allModules.filter(isModuleCompleted).length,
+    [allModules],
+  )
+  const totalModules = allModules.length
+  const progressPercent = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0
+
+  // Navigation
+  const activeIndex = activeModuleId
+    ? allModules.findIndex((m) => m.id === activeModuleId)
+    : -1
+  const canGoPrev = activeIndex > 0
+  const canGoNext = activeIndex >= 0 && activeIndex < allModules.length - 1
+
+  const navigateToModule = (moduleId: number) => {
+    setActiveModuleId(moduleId)
+    // Expand the section containing this module
+    for (const section of sections) {
+      if (section.modules.some((m) => m.id === moduleId)) {
+        setExpandedSections((prev) => {
+          const next = new Set(prev)
+          next.add(section.id)
+          return next
+        })
+        break
+      }
+    }
+    // Scroll to the module
+    setTimeout(() => {
+      document.getElementById(`module-${moduleId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    }, 100)
+  }
+
+  const handlePrev = () => {
+    if (canGoPrev) navigateToModule(allModules[activeIndex - 1].id)
+  }
+  const handleNext = () => {
+    if (canGoNext) navigateToModule(allModules[activeIndex + 1].id)
+  }
+
   function toggleSection(sectionId: number) {
     setExpandedSections((prev) => {
       const next = new Set(prev)
@@ -85,7 +155,6 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
     })
   }
 
-  const progress = course.progress ?? 0
   const visibleSections = sections
 
   return (
@@ -137,13 +206,13 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                   <circle
                     cx="20" cy="20" r="16"
                     fill="none" strokeWidth="3"
-                    strokeDasharray={`${(progress / 100) * (2 * Math.PI * 16)} ${2 * Math.PI * 16}`}
+                    strokeDasharray={`${((course.progress ?? 0) / 100) * (2 * Math.PI * 16)} ${2 * Math.PI * 16}`}
                     strokeLinecap="round"
                     className="stroke-primary transition-all duration-700"
                   />
                 </svg>
                 <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-foreground">
-                  {Math.round(progress)}%
+                  {Math.round(course.progress ?? 0)}%
                 </span>
               </div>
               <div className="text-xs text-muted-foreground">
@@ -156,6 +225,37 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
           )}
         </div>
       </motion.div>
+
+      {/* Course Progress Bar (Topic X of Y | X% Complete) */}
+      {!loading && !error && totalModules > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+          className="mt-4 rounded-xl border border-border bg-card px-5 py-4"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-foreground">
+              Module {completedModules} of {totalModules}
+            </span>
+            <span
+              className="text-sm font-bold tabular-nums"
+              style={{ color: 'var(--quiz-accent-primary)' }}
+            >
+              {progressPercent}% Complete
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-secondary overflow-hidden">
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: 'var(--quiz-accent-primary)' }}
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+            />
+          </div>
+        </motion.div>
+      )}
 
       {/* Content */}
       <div className="mt-6">
@@ -192,6 +292,14 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
             {visibleSections.map((section, sectionIndex) => {
               const isExpanded = expandedSections.has(section.id)
               const visibleModules = section.modules ?? []
+              const sectionCompleted = visibleModules
+                .filter((m) => m.modname !== 'label')
+                .every(isModuleCompleted)
+              const sectionCompletedCount = visibleModules
+                .filter((m) => m.modname !== 'label')
+                .filter(isModuleCompleted).length
+              const sectionTotalCount = visibleModules
+                .filter((m) => m.modname !== 'label').length
 
               return (
                 <motion.div
@@ -213,6 +321,12 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                         isExpanded && 'rotate-90',
                       )}
                     />
+                    {sectionCompleted && sectionTotalCount > 0 && (
+                      <CheckCircle2
+                        className="h-4 w-4 shrink-0"
+                        style={{ color: 'var(--quiz-accent-success)' }}
+                      />
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground">
                         {section.name || `Section ${section.section + 1}`}
@@ -225,8 +339,8 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                         />
                       )}
                     </div>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {visibleModules.length} item{visibleModules.length !== 1 ? 's' : ''}
+                    <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                      {sectionCompletedCount}/{sectionTotalCount}
                     </span>
                     <ChevronDown
                       className={cn(
@@ -256,7 +370,37 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                           {visibleModules.length > 0 ? (
                             <div className="flex flex-col gap-2 pt-2">
                               {visibleModules.map((mod) => (
-                                <MoodleModuleRenderer key={mod.id} module={mod} courseId={course.id} />
+                                <div
+                                  key={mod.id}
+                                  id={`module-${mod.id}`}
+                                  className={cn(
+                                    'relative transition-all duration-200',
+                                    activeModuleId === mod.id && 'ring-2 ring-[var(--quiz-accent-primary)] rounded-xl',
+                                  )}
+                                >
+                                  {/* Completion indicator */}
+                                  {mod.modname !== 'label' && isModuleCompleted(mod) && (
+                                    <div className="absolute -left-1 top-3 z-10">
+                                      <CheckCircle2
+                                        className="h-4 w-4"
+                                        style={{ color: 'var(--quiz-accent-success)' }}
+                                      />
+                                    </div>
+                                  )}
+                                  <div
+                                    role={mod.modname !== 'label' ? 'button' : undefined}
+                                    tabIndex={mod.modname !== 'label' ? 0 : undefined}
+                                    onClick={() => {
+                                      if (mod.modname !== 'label') setActiveModuleId(mod.id)
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && mod.modname !== 'label')
+                                        setActiveModuleId(mod.id)
+                                    }}
+                                  >
+                                    <MoodleModuleRenderer module={mod} courseId={course.id} />
+                                  </div>
+                                </div>
                               ))}
                             </div>
                           ) : (
@@ -272,6 +416,38 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
               )
             })}
           </div>
+        )}
+
+        {/* Previous / Next Module Navigation */}
+        {!loading && !error && activeModuleId !== null && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between gap-2 mt-6 pt-4 border-t border-border"
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!canGoPrev}
+              onClick={handlePrev}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Previous
+            </Button>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {activeIndex + 1} / {allModules.length}
+            </span>
+            <Button
+              size="sm"
+              disabled={!canGoNext}
+              onClick={handleNext}
+              className="gap-2 bg-[var(--quiz-accent-primary)] text-white hover:bg-[var(--quiz-accent-primary)]/90"
+            >
+              Next
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </motion.div>
         )}
       </div>
     </div>

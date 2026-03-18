@@ -34,8 +34,19 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden: external URL.' }, { status: 403 })
         }
 
-        // Append the WS token for authenticated file access
+        // Rewrite pluginfile.php → webservice/pluginfile.php for WS token auth.
+        // Moodle serves files via /pluginfile.php but requires the /webservice/
+        // prefix when using a web-service token instead of a browser session.
         const authedUrl = new URL(fileUrl)
+        if (
+            authedUrl.pathname.includes('/pluginfile.php') &&
+            !authedUrl.pathname.includes('/webservice/pluginfile.php')
+        ) {
+            authedUrl.pathname = authedUrl.pathname.replace(
+                '/pluginfile.php',
+                '/webservice/pluginfile.php',
+            )
+        }
         authedUrl.searchParams.set('token', session.token)
 
         const upstream = await fetch(authedUrl.toString(), { cache: 'no-store' })

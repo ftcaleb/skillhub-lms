@@ -104,3 +104,172 @@
 ::-webkit-scrollbar-thumb:hover {
   background: oklch(0.4 0.02 255);
 }
+
+/* ── Quiz-specific design tokens ──────────────────────────────────────── */
+:root {
+  --quiz-bg-primary: #0a0f1e;
+  --quiz-bg-card: #111827;
+  --quiz-bg-elevated: #1a2235;
+  --quiz-accent-primary: #2563eb;
+  --quiz-accent-success: #10b981;
+  --quiz-accent-warning: #f59e0b;
+  --quiz-text-primary: #f1f5f9;
+  --quiz-text-secondary: #94a3b8;
+  --quiz-text-muted: #4b5563;
+  --quiz-border-subtle: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Shimmer skeleton loader ──────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--quiz-bg-card) 25%,
+    var(--quiz-bg-elevated) 50%,
+    var(--quiz-bg-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Video embed aspect-ratio container ───────────────────────────────── */
+.video-embed-wrapper {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+}
+.video-embed-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 8px;
+}
+
+/* ── Quiz option styles ───────────────────────────────────────────────── */
+.quiz-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 10px;
+  border: 1px solid var(--quiz-border-subtle);
+  background: var(--quiz-bg-card);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: left;
+  color: var(--quiz-text-primary);
+  font-size: 0.9375rem;
+  font-weight: 400;
+}
+.quiz-option:hover {
+  border-color: var(--quiz-accent-primary);
+  background: rgba(37, 99, 235, 0.08);
+}
+.quiz-option.selected {
+  border-color: var(--quiz-accent-primary);
+  background: rgba(37, 99, 235, 0.15);
+}
+.quiz-option .option-letter {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  flex-shrink: 0;
+  font-size: 0.875rem;
+}
+.quiz-option.selected .option-letter {
+  background: var(--quiz-accent-primary);
+  border-color: var(--quiz-accent-primary);
+  color: white;
+}
+
+/* ── Quiz question navigator grid ─────────────────────────────────────── */
+.quiz-nav-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid var(--quiz-border-subtle);
+  background: var(--quiz-bg-card);
+  color: var(--quiz-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.quiz-nav-btn:hover {
+  border-color: var(--quiz-accent-primary);
+}
+.quiz-nav-btn.current {
+  background: var(--quiz-accent-primary);
+  border-color: var(--quiz-accent-primary);
+  color: white;
+}
+.quiz-nav-btn.answered {
+  border-color: var(--quiz-accent-primary);
+  color: var(--quiz-accent-primary);
+}
+.quiz-nav-btn.flagged {
+  border-color: var(--quiz-accent-warning);
+  color: var(--quiz-accent-warning);
+}
+
+/* ── Moodle HTML dark-themed table styles ─────────────────────────────── */
+.moodle-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+}
+.moodle-content th,
+.moodle-content td {
+  border: 1px solid var(--quiz-border-subtle);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+.moodle-content th {
+  background: var(--quiz-bg-elevated);
+  font-weight: 600;
+  text-align: left;
+  color: var(--quiz-text-primary);
+}
+.moodle-content td {
+  color: var(--quiz-text-secondary);
+}
+.moodle-content tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── Quiz metadata labels ─────────────────────────────────────────────── */
+.quiz-meta-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--quiz-text-muted);
+}
+
+/* ── Quiz timer pulse (low time) ──────────────────────────────────────── */
+@keyframes timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.timer-warning {
+  animation: timer-pulse 1s ease-in-out infinite;
+  color: #ef4444;
+}
