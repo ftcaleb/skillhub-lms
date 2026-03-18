@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import DOMPurify from 'isomorphic-dompurify'
 import {
     FileText,
     Link2,
@@ -13,13 +14,19 @@ import {
     ExternalLink,
     Download,
     ChevronDown,
+    ChevronRight,
     Tag,
+    Clock,
+    RefreshCw,
 } from 'lucide-react'
 import { SanitizedHTML } from '@/components/sanitized-html'
-import type { MoodleModule, MoodleFileContent } from '@/lib/moodle/types'
+import { Button } from '@/components/ui/button'
+import { QuizContent } from '@/components/course/quiz-content'
+import type { HydratedMoodleModule, MoodleFileContent } from '@/lib/moodle/types'
 
 interface MoodleModuleRendererProps {
-    module: MoodleModule
+    module: HydratedMoodleModule
+    courseId: number
 }
 
 /** Build a proxied URL so the file download goes through our server-side token appender */
@@ -45,7 +52,7 @@ function useModuleDisplay(modname: string) {
 
 // ── Renderers per modname ──────────────────────────────────────────────────
 
-function LabelModule({ mod }: { mod: MoodleModule }) {
+function LabelModule({ mod }: { mod: HydratedMoodleModule }) {
     const content = mod.description ?? ''
     if (!content.trim()) return null
     return (
@@ -58,7 +65,7 @@ function LabelModule({ mod }: { mod: MoodleModule }) {
     )
 }
 
-function ResourceModule({ mod }: { mod: MoodleModule }) {
+function ResourceModule({ mod }: { mod: HydratedMoodleModule }) {
     const files: MoodleFileContent[] = mod.contents ?? []
     if (files.length === 0) {
         return <GenericModule mod={mod} />
@@ -94,10 +101,13 @@ function ResourceModule({ mod }: { mod: MoodleModule }) {
     )
 }
 
-function UrlModule({ mod }: { mod: MoodleModule }) {
+function UrlModule({ mod }: { mod: HydratedMoodleModule }) {
+    // Prefer resourceDetail if available
+    const externalUrl = mod.urlDetail?.externalurl ?? mod.url
+    
     return (
         <a
-            href={mod.url}
+            href={externalUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm text-card-foreground hover:border-cyan-400/30 hover:bg-secondary/50 transition-all group"
@@ -107,8 +117,8 @@ function UrlModule({ mod }: { mod: MoodleModule }) {
             </div>
             <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{mod.name}</p>
-                {mod.url && (
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{mod.url}</p>
+                {externalUrl && (
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{externalUrl}</p>
                 )}
             </div>
             <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-cyan-400 transition-colors shrink-0" />
@@ -116,58 +126,103 @@ function UrlModule({ mod }: { mod: MoodleModule }) {
     )
 }
 
-function PageModule({ mod }: { mod: MoodleModule }) {
-    const [open, setOpen] = useState(false)
-    const content = mod.description ?? ''
+/**
+ * Rewrite pluginfile.php URLs in HTML to go through our server-side proxy.
+ * This ensures authenticated file access without exposing the token.
+ */
+function rewritePluginfileUrls(html: string): string {
+    return html.replace(
+        /(src|href)="(https?:\/\/[^"]*pluginfile\.php[^"]*)"/g,
+        (_, attr, url) => `${attr}="/api/courses/file?url=${encodeURIComponent(url)}"`
+    )
+}
+
+/**
+ * Transform YouTube and Vimeo video links into embedded iframes
+ * Converts: <a href="https://youtube.com/watch?v=ID">text</a>
+ * Into: <iframe src="https://www.youtube.com/embed/ID" ...></iframe>
+ * 
+ * This allows videos embedded as links in page content to display as players
+ */
+function transformVideoLinksToIframes(html: string): string {
+    // YouTube: watch?v=ID, youtu.be/ID, youtube.com/embed/ID
+    html = html.replace(
+        /<a\s+href=["']?(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^"'\s&?]+)[^"']*?)["']?\s*>([^<]*)<\/a>/gi,
+        (match, url, videoId, text) => {
+            const id = videoId.trim()
+            return `<div class="video-embed"><iframe width="560" height="315" src="https://www.youtube.com/embed/${id}" title="${text.trim() || 'Video'}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
+        }
+    )
+
+    // Vimeo: vimeo.com/ID or player.vimeo.com/video/ID
+    html = html.replace(
+        /<a\s+href=["']?(https?:\/\/(?:(?:www\.)?vimeo\.com|player\.vimeo\.com\/video)\/(\d+)[^"']*)["']?\s*>([^<]*)<\/a>/gi,
+        (match, url, videoId, text) => {
+            const id = videoId.trim()
+            return `<div class="video-embed"><iframe width="560" height="315" src="https://player.vimeo.com/video/${id}" title="${text.trim() || 'Video'}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
+        }
+    )
+
+    return html
+}
+
+/**
+ * PageModule — Native HTML Rendering
+ * 
+ * Renders page.content as native HTML with prose styling (no accordion).
+ * The content is fetched server-side and injected directly for a clean, expansive UX.
+ */
+function PageModule({ mod }: { mod: HydratedMoodleModule }) {
+    // pageDetail is set during hydration
+    let content = mod.pageDetail?.content ?? mod.description ?? ''
+
+    if (!content.trim()) {
+        if (mod.url) {
+            return (
+                <a
+                    href={mod.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm text-primary hover:bg-secondary/50 transition-colors"
+                >
+                    <BookOpen className="h-4 w-4 shrink-0" />
+                    <span>Open Page</span>
+                    <ExternalLink className="h-3.5 w-3.5 ml-auto shrink-0" />
+                </a>
+            )
+        }
+        return null
+    }
+
+    // STEP 1: Transform video links (YouTube/Vimeo/etc) to iframes
+    content = transformVideoLinksToIframes(content)
+
+    // STEP 2: Rewrite pluginfile.php URLs to use our proxy BEFORE passing to SanitizedHTML
+    content = rewritePluginfileUrls(content)
+
+    // STEP 2: Pass to SanitizedHTML which handles sanitization with proper iframe support
+    // (Do NOT sanitize here - SanitizedHTML has better iframe handling)
 
     return (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <button
-                onClick={() => setOpen(!open)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-secondary/50 transition-colors"
-                aria-expanded={open}
-            >
-                <BookOpen className="h-4 w-4 text-violet-400 shrink-0" />
-                <p className="flex-1 text-sm font-medium text-card-foreground">{mod.name}</p>
-                <ChevronDown
-                    className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`}
+        <div className="rounded-xl border border-violet-500/20 bg-card overflow-hidden shadow-sm">
+            {/* Page title header */}
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-border/30 bg-gradient-to-r from-violet-500/10 to-transparent">
+                <BookOpen className="h-5 w-5 text-violet-400 shrink-0" />
+                <h2 className="text-base font-bold text-foreground">{mod.name}</h2>
+            </div>
+
+            {/* Native HTML content with prose styling */}
+            <div className="px-8 py-8">
+                <SanitizedHTML
+                    html={content}
+                    className="prose prose-invert max-w-none text-foreground [&_h1]:text-4xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-6 [&_h1]:text-foreground [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h2]:text-foreground [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-foreground [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:mt-5 [&_h4]:mb-2 [&_p]:mb-5 [&_p]:leading-7 [&_p]:text-sm [&_ul]:mb-6 [&_ul]:list-disc [&_ul]:pl-8 [&_ul]:space-y-2 [&_ol]:mb-6 [&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:space-y-2 [&_li]:text-sm [&_li]:leading-6 [&_a]:text-violet-400 [&_a]:hover:text-violet-300 [&_a]:underline [&_a]:transition-colors [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_em]:text-foreground [&_code]:bg-secondary/50 [&_code]:px-2.5 [&_code]:py-1.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_code]:text-purple-300 [&_pre]:bg-secondary/70 [&_pre]:p-5 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-sm [&_blockquote]:border-l-4 [&_blockquote]:border-violet-400/50 [&_blockquote]:pl-5 [&_blockquote]:py-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_blockquote]:bg-secondary/20 [&_blockquote]:rounded-r [&_table]:w-full [&_table]:border-collapse [&_table]:my-6 [&_th]:border [&_th]:border-border/50 [&_th]:px-4 [&_th]:py-3 [&_th]:bg-secondary/50 [&_th]:text-left [&_th]:font-semibold [&_th]:text-foreground [&_td]:border [&_td]:border-border/50 [&_td]:px-4 [&_td]:py-3 [&_td]:text-sm [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto [&_img]:my-6 [&_img]:shadow-md [&_.video-embed]:w-full [&_.video-embed]:my-6 [&_.video-embed]:flex [&_.video-embed]:justify-center [&_iframe]:w-full [&_iframe]:rounded-lg [&_iframe]:aspect-video [&_video]:rounded-lg [&_video]:max-w-full [&_video]:my-6"
                 />
-            </button>
-            <AnimatePresence initial={false}>
-                {open && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                    >
-                        <div className="border-t border-border/50 px-4 py-4">
-                            {content ? (
-                                <SanitizedHTML
-                                    html={content}
-                                    className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed text-muted-foreground [&_a]:text-primary [&_a]:underline [&_p]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-foreground"
-                                />
-                            ) : mod.url ? (
-                                <a
-                                    href={mod.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                                >
-                                    <ExternalLink className="h-3 w-3" />
-                                    Open page
-                                </a>
-                            ) : null}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            </div>
         </div>
     )
 }
 
-function AssignModule({ mod }: { mod: MoodleModule }) {
+function AssignModule({ mod }: { mod: HydratedMoodleModule }) {
     const due = mod.dates?.find((d) => d.label.toLowerCase().includes('due'))
     return (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 overflow-hidden">
@@ -205,11 +260,41 @@ function AssignModule({ mod }: { mod: MoodleModule }) {
     )
 }
 
-function VideoModule({ mod }: { mod: MoodleModule }) {
+function VideoModule({ mod }: { mod: HydratedMoodleModule }) {
     const file = mod.contents?.find((f) =>
         f.mimetype?.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(f.filename),
     )
-    const externalUrl = mod.url
+
+    // Try to extract YouTube/Vimeo video from URL
+    let youtubeId: string | null = null
+    let vimeoId: string | null = null
+
+    const urlToCheck = mod.urlDetail?.externalurl ?? mod.url ?? ''
+
+    if (urlToCheck) {
+        // YouTube: multiple patterns
+        // - youtube.com/watch?v=ID
+        // - youtu.be/ID
+        // - youtube.com/embed/ID
+        const youtubePatterns = [
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^\s&?]+)/i,
+            /v[=\/]([^\s&?]+)/i,
+        ]
+        
+        for (const pattern of youtubePatterns) {
+            const match = urlToCheck.match(pattern)
+            if (match?.[1]) {
+                youtubeId = match[1]
+                break
+            }
+        }
+
+        // Vimeo: extract ID from vimeo.com/ID
+        if (!youtubeId) {
+            const vimeoMatch = urlToCheck.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+            if (vimeoMatch) vimeoId = vimeoMatch[1]
+        }
+    }
 
     return (
         <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 overflow-hidden">
@@ -219,58 +304,155 @@ function VideoModule({ mod }: { mod: MoodleModule }) {
                 </div>
                 <p className="text-sm font-medium text-card-foreground">{mod.name}</p>
             </div>
-            {file ? (
-                <div className="p-4">
-                    <video
-                        controls
-                        className="w-full rounded-lg bg-black aspect-video"
-                        src={proxyFileUrl(file.fileurl)}
-                    >
-                        Your browser does not support the video tag.
-                    </video>
-                </div>
-            ) : externalUrl ? (
-                <div className="px-4 py-3">
+
+            <div className="p-4">
+                {/* Local video file */}
+                {file ? (
+                    <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black">
+                        <video
+                            controls
+                            className="w-full h-full"
+                            src={proxyFileUrl(file.fileurl)}
+                        >
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                ) : youtubeId ? (
+                    /* YouTube embed */
+                    <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+                        <iframe
+                            src={`https://www.youtube.com/embed/${youtubeId}`}
+                            title={mod.name}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                        />
+                    </div>
+                ) : vimeoId ? (
+                    /* Vimeo embed */
+                    <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+                        <iframe
+                            src={`https://player.vimeo.com/video/${vimeoId}`}
+                            title={mod.name}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                        />
+                    </div>
+                ) : urlToCheck ? (
+                    /* Fallback: external link */
                     <a
-                        href={externalUrl}
+                        href={urlToCheck}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 transition-colors"
+                        className="flex items-center gap-2 text-xs text-rose-400 hover:text-rose-300 transition-colors"
                     >
                         <ExternalLink className="h-3 w-3" />
                         Open video
                     </a>
-                </div>
-            ) : null}
+                ) : null}
+            </div>
         </div>
     )
 }
 
-function QuizModule({ mod }: { mod: MoodleModule }) {
+/**
+ * QuizModule — In-app Quiz Interface
+ * 
+ * Displays quiz metadata (intro, time limit, max attempts).
+ * User clicks "Start Quiz" to begin the attempt in-app using QuizContent.
+ */
+function QuizModule({ mod, courseId }: { mod: HydratedMoodleModule; courseId: number }) {
+    const [showQuiz, setShowQuiz] = useState(false)
+    const quiz = mod.quizDetail
+
+    if (showQuiz && quiz) {
+        // Render the in-app quiz interface
+        return (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-emerald-500/20 bg-secondary/30">
+                    <button
+                        onClick={() => setShowQuiz(false)}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        <ChevronDown className="h-3.5 w-3.5 rotate-90" />
+                        Back
+                    </button>
+                    <p className="text-sm font-semibold text-card-foreground flex-1">{mod.name}</p>
+                </div>
+                <div className="p-4 sm:p-6">
+                    <QuizContent quizId={quiz.id} quizName={mod.name} courseId={courseId} />
+                </div>
+            </div>
+        )
+    }
+
+    // Display quiz metadata + "Start Quiz" button
+    const formatTimeLimit = (seconds: number): string => {
+        if (seconds === 0) return 'No time limit'
+        const hours = Math.floor(seconds / 3600)
+        const minutes = Math.floor((seconds % 3600) / 60)
+        if (hours > 0) return `${hours}h ${minutes}m`
+        return `${minutes} minutes`
+    }
+
+    const formatAttempts = (attempts: number): string => {
+        if (attempts === 0) return 'Unlimited attempts'
+        return `${attempts} attempt${attempts !== 1 ? 's' : ''}`
+    }
+
     return (
-        <a
-            href={mod.url ?? '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 hover:bg-emerald-500/10 transition-colors group"
-        >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
-                <HelpCircle className="h-4 w-4 text-emerald-400" />
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-emerald-500/20">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+                    <HelpCircle className="h-4 w-4 text-emerald-400" />
+                </div>
+                <div className="flex-1">
+                    <p className="text-sm font-semibold text-card-foreground">{mod.name}</p>
+                </div>
             </div>
-            <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-card-foreground">{mod.name}</p>
-                {mod.description && (
-                    <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
-                        Click to open quiz in Moodle
-                    </p>
+
+            {/* Content */}
+            <div className="px-4 py-4 flex flex-col gap-4">
+                {/* Quiz description / intro */}
+                {(quiz?.intro || mod.description) && (
+                    <div className="text-xs text-muted-foreground leading-relaxed">
+                        <SanitizedHTML
+                            html={quiz?.intro || mod.description || ''}
+                            className="[&_p]:mb-1"
+                        />
+                    </div>
                 )}
+
+                {/* Metadata */}
+                {quiz && (
+                    <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-3.5 w-3.5 text-emerald-400/60 shrink-0" />
+                            <span>{formatTimeLimit(quiz.timelimit)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <RefreshCw className="h-3.5 w-3.5 text-emerald-400/60 shrink-0" />
+                            <span>{formatAttempts(quiz.attempts)}</span>
+                        </div>
+                    </div>
+                )}
+
+                {/* Action button */}
+                <Button
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-2"
+                    onClick={() => setShowQuiz(true)}
+                >
+                    Start Quiz
+                    <ChevronRight className="h-3.5 w-3.5 ml-2" />
+                </Button>
             </div>
-            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-emerald-400 transition-colors shrink-0" />
-        </a>
+        </div>
     )
 }
 
-function GenericModule({ mod }: { mod: MoodleModule }) {
+function GenericModule({ mod }: { mod: HydratedMoodleModule }) {
     const { icon: Icon, label, color } = useModuleDisplay(mod.modname)
     return (
         <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
@@ -298,8 +480,8 @@ function GenericModule({ mod }: { mod: MoodleModule }) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function MoodleModuleRenderer({ module: mod }: MoodleModuleRendererProps) {
-    // Step 4 — Explicit switch. No silent return null anywhere.
+export function MoodleModuleRenderer({ module: mod, courseId }: MoodleModuleRendererProps) {
+    // Explicit switch. No silent return null anywhere.
     switch (mod.modname) {
         case 'label':
             return <LabelModule mod={mod} />
@@ -314,12 +496,12 @@ export function MoodleModuleRenderer({ module: mod }: MoodleModuleRendererProps)
         case 'video':
             return <VideoModule mod={mod} />
         case 'quiz':
-            return <QuizModule mod={mod} />
+            return <QuizModule mod={mod} courseId={courseId} />
         default:
             return (
-                <div className="border p-4 rounded bg-zinc-900">
+                <div className="border p-4 rounded bg-secondary">
                     <p className="font-semibold text-foreground">{mod.name}</p>
-                    <p className="text-sm text-zinc-400">
+                    <p className="text-sm text-muted-foreground">
                         Unsupported module type: {mod.modname}
                     </p>
                 </div>

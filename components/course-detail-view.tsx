@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { SanitizedHTML } from '@/components/sanitized-html'
 import { MoodleModuleRenderer } from '@/components/moodle-module-renderer'
-import type { MoodleCourse, MoodleSection } from '@/lib/moodle/types'
+import type { MoodleCourse, HydratedMoodleSection } from '@/lib/moodle/types'
 
 interface CourseDetailViewProps {
   course: MoodleCourse
@@ -42,7 +42,7 @@ function SectionsSkeleton() {
 
 export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
   const router = useRouter()
-  const [sections, setSections] = useState<MoodleSection[]>([])
+  const [sections, setSections] = useState<HydratedMoodleSection[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set())
@@ -51,7 +51,9 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/courses/${course.id}/contents`)
+      // Use the hydration endpoint instead of basic contents
+      // This fetches all module details in one call (N+1 optimization)
+      const res = await fetch(`/api/courses/${course.id}/hydrate`)
       if (res.status === 401) {
         router.push('/login')
         return
@@ -59,9 +61,9 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to fetch course contents.')
 
-      const sectionsData = data as MoodleSection[]
+      const sectionsData = data.sections ?? []
       setSections(sectionsData)
-      const allIds = sectionsData.map((s) => s.id)
+      const allIds = sectionsData.map((s: HydratedMoodleSection) => s.id)
       setExpandedSections(new Set(allIds))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error.')
@@ -254,7 +256,7 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                           {visibleModules.length > 0 ? (
                             <div className="flex flex-col gap-2 pt-2">
                               {visibleModules.map((mod) => (
-                                <MoodleModuleRenderer key={mod.id} module={mod} />
+                                <MoodleModuleRenderer key={mod.id} module={mod} courseId={course.id} />
                               ))}
                             </div>
                           ) : (

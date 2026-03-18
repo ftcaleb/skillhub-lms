@@ -112,6 +112,213 @@ export interface MoodleSection {
     modules: MoodleModule[]
 }
 
+// ── Module Hydration — Detail Payloads ──────────────────────────────────────
+
+/**
+ * Response from mod_page_get_pages_by_courses.
+ * Adds rich content to a page module instance.
+ */
+export interface MoodlePageDetail {
+    id: number
+    coursemodule: number
+    name: string
+    intro: string             // HTML content
+    introformat: number
+    content: string           // Main page body (HTML)
+    contentformat: number
+    created: number
+    modified: number
+    display: number
+    displayoptions: string
+    revision: number
+    timemodified: number
+}
+
+/**
+ * Response from mod_quiz_get_quizzes_by_courses.
+ * Quiz metadata for in-app rendering.
+ */
+export interface MoodleQuizDetail {
+    id: number
+    coursemodule: number
+    course: number
+    name: string
+    intro: string
+    introformat: number
+    introfiles?: MoodleFileContent[]
+    timeopen: number
+    timeclose: number
+    timelimit: number        // Seconds, 0 = no limit
+    overduehandling: string
+    graceperiod: number
+    preferredbehaviour: string
+    canredoquestions: number
+    attempts: number         // Max attempts: 0 = unlimited
+    attemptonlast: number
+    decimalpoints: number
+    questiondecimalpoints: number
+    reviewattempt: number
+    reviewcorrectness: number
+    reviewmarks: number
+    reviewspecificfeedback: number
+    reviewgeneralfeedback: number
+    reviewrightanswer: number
+    reviewoverallfeedback: number
+    questionsperpage: number
+    navigation: number
+    allowiembed: number
+    maxattempts: number
+    penaltyscheme: number
+    penaltyscheme_penalty: number
+    shuffleanswers: number
+    shufflequestions: number
+    state: string
+    sumgrades: number
+    grade: number
+}
+
+/**
+ * Response from mod_resource_get_resources_by_courses.
+ * File resource metadata.
+ */
+export interface MoodleResourceDetail {
+    id: number
+    coursemodule: number
+    course: number
+    name: string
+    intro: string
+    introformat: number
+    introfiles?: MoodleFileContent[]
+    contentfiles?: MoodleFileContent[]
+    tobemigrated: number
+    legacyfiles: number
+    legacyfileslast: number
+    display: number
+    displayoptions: string
+    filterfiles: number
+    revision: number
+    timemodified: number
+}
+
+/**
+ * Response from mod_url_get_urls_by_courses.
+ * External URL/link metadata.
+ */
+export interface MoodleUrlDetail {
+    id: number
+    coursemodule: number
+    course: number
+    name: string
+    intro: string
+    introformat: number
+    introfiles?: MoodleFileContent[]
+    externalurl: string
+    display: number
+    displayoptions: string
+    parameters: string
+    timemodified: number
+}
+
+/**
+ * Hydrated module — extends MoodleModule with optional detail payloads.
+ * After hydration, one of these detail fields will be populated based on modname.
+ */
+export interface HydratedMoodleModule extends MoodleModule {
+    pageDetail?: MoodlePageDetail
+    quizDetail?: MoodleQuizDetail
+    resourceDetail?: MoodleResourceDetail
+    urlDetail?: MoodleUrlDetail
+}
+
+/**
+ * Hydrated section — contains hydrated modules.
+ */
+export interface HydratedMoodleSection extends MoodleSection {
+    modules: HydratedMoodleModule[]
+}
+
+/**
+ * Hydrated course — returned from the /api/courses/[id]/hydrate endpoint.
+ * Contains all module details pre-fetched server-side.
+ */
+export interface HydratedCourse extends MoodleCourse {
+    sections: HydratedMoodleSection[]
+}
+
+// ── Quiz Attempts ───────────────────────────────────────────────────────────
+
+/**
+ * Quiz attempt record returned from mod_quiz_start_attempt and mod_quiz_get_attempt_data.
+ */
+export interface MoodleQuizAttempt {
+    id: number
+    quiz: number
+    userid: number
+    attempt: number
+    state: 'inprogress' | 'finished' | 'abandoned' | 'overdue'
+    timestart: number
+    timefinish: number
+    timemodified: number
+    sumgrades: number | null
+}
+
+/**
+ * Response from mod_quiz_start_attempt.
+ * Contains the newly created attempt and any warnings.
+ */
+export interface MoodleStartAttemptResponse {
+    attempt: MoodleQuizAttempt
+    warnings: MoodleWarning[]
+}
+
+/**
+ * A single question in a quiz attempt.
+ * The html field contains the fully rendered question HTML from Moodle.
+ */
+export interface MoodleAttemptQuestion {
+    slot: number
+    type: string        // e.g. 'multichoice', 'truefalse', 'shortanswer', 'match'
+    number: number
+    html: string        // Full rendered question HTML from Moodle
+    sequencecheck: number
+    state: string
+    status: string
+    flagged: boolean
+    // Additional fields may be present in actual API response
+    [key: string]: unknown
+}
+
+/**
+ * Response from mod_quiz_get_attempt_data.
+ * Contains the attempt, the questions for a specific page, and warnings.
+ */
+export interface MoodleAttemptDataResponse {
+    attempt: MoodleQuizAttempt
+    messages: string[]
+    questions: MoodleAttemptQuestion[]
+    warnings: MoodleWarning[]
+}
+
+/**
+ * Response from mod_quiz_process_attempt.
+ * Indicates the attempt state after submitting answers.
+ */
+export interface MoodleProcessAttemptResponse {
+    state: string
+    warnings: MoodleWarning[]
+}
+
+/**
+ * Moodle API warning object.
+ * Returned in the warnings array of most API responses.
+ */
+export interface MoodleWarning {
+    item?: string
+    itemid?: number
+    warningcode: string
+    message: string
+}
+
 // ── Auth / Users ────────────────────────────────────────────────────────────
 
 export interface MoodleCreateUserParams {

@@ -13,6 +13,13 @@ import type {
     MoodleCreateUserParams,
     MoodleCreatedUser,
     MoodleTokenResponse,
+    MoodlePageDetail,
+    MoodleQuizDetail,
+    MoodleResourceDetail,
+    MoodleUrlDetail,
+    MoodleStartAttemptResponse,
+    MoodleAttemptDataResponse,
+    MoodleProcessAttemptResponse,
 } from './types'
 
 class MoodleService {
@@ -140,6 +147,58 @@ class MoodleService {
     }
 
     /**
+     * Fetch page module details by course.
+     * Returns an array of page objects with full content payloads.
+     */
+    async getPagesByCourseId(token: string, courseId: number): Promise<MoodlePageDetail[]> {
+        const result = await this.fetchWS<{ pages: MoodlePageDetail[]; warnings: unknown[] }>(
+            token,
+            'mod_page_get_pages_by_courses',
+            { 'courseids[0]': courseId },
+        )
+        return result?.pages ?? []
+    }
+
+    /**
+     * Fetch quiz module details by course.
+     * Returns quiz metadata (limits, attempts, etc.).
+     */
+    async getQuizzesByCourseId(token: string, courseId: number): Promise<MoodleQuizDetail[]> {
+        const result = await this.fetchWS<{ quizzes: MoodleQuizDetail[]; warnings: unknown[] }>(
+            token,
+            'mod_quiz_get_quizzes_by_courses',
+            { 'courseids[0]': courseId },
+        )
+        return result?.quizzes ?? []
+    }
+
+    /**
+     * Fetch resource module details by course.
+     * Returns file resource metadata.
+     */
+    async getResourcesByCourseId(token: string, courseId: number): Promise<MoodleResourceDetail[]> {
+        const result = await this.fetchWS<{ resources: MoodleResourceDetail[]; warnings: unknown[] }>(
+            token,
+            'mod_resource_get_resources_by_courses',
+            { 'courseids[0]': courseId },
+        )
+        return result?.resources ?? []
+    }
+
+    /**
+     * Fetch URL module details by course.
+     * Returns external URL metadata.
+     */
+    async getUrlsByCourseId(token: string, courseId: number): Promise<MoodleUrlDetail[]> {
+        const result = await this.fetchWS<{ urls: MoodleUrlDetail[]; warnings: unknown[] }>(
+            token,
+            'mod_url_get_urls_by_courses',
+            { 'courseids[0]': courseId },
+        )
+        return result?.urls ?? []
+    }
+
+    /**
      * Create a new Moodle user using the ADMIN token.
      * Regular user tokens cannot create users — this is an admin-only operation.
      * After this call, the caller should immediately invoke login() with the new
@@ -167,6 +226,81 @@ class MoodleService {
         }
 
         return result[0]
+    }
+
+    /**
+     * Start a new quiz attempt or resume an existing one.
+     * Returns the attempt object (contains attempt ID and metadata).
+     *
+     * @param token User's WS token
+     * @param quizId Quiz module instance ID (mod.instance)
+     * @param forcenew 0 = resume existing, 1 = start new (force new even if in progress)
+     */
+    async startQuizAttempt(
+        token: string,
+        quizId: number,
+        forcenew: 0 | 1 = 0,
+    ): Promise<MoodleStartAttemptResponse> {
+        return this.fetchWS<MoodleStartAttemptResponse>(
+            token,
+            'mod_quiz_start_attempt',
+            { quizid: quizId, forcenew },
+        )
+    }
+
+    /**
+     * Fetch questions for a specific page of a quiz attempt.
+     * Each question includes the fully rendered HTML from Moodle.
+     *
+     * @param token User's WS token
+     * @param attemptId Quiz attempt ID (from startAttempt)
+     * @param page Page number (0-indexed)
+     */
+    async getAttemptData(
+        token: string,
+        attemptId: number,
+        page: number,
+    ): Promise<MoodleAttemptDataResponse> {
+        return this.fetchWS<MoodleAttemptDataResponse>(
+            token,
+            'mod_quiz_get_attempt_data',
+            { attemptid: attemptId, page },
+        )
+    }
+
+    /**
+     * Submit answers for the current page of a quiz attempt.
+     * Can either save the page (for navigation) or finish the attempt.
+     *
+     * @param token User's WS token
+     * @param attemptId Quiz attempt ID
+     * @param data Array of { name, value } pairs (question answer slots)
+     * @param finishattempt 1 to finish, 0 to save and continue
+     * @param timeup 1 if time limit was reached, 0 otherwise
+     */
+    async processAttempt(
+        token: string,
+        attemptId: number,
+        data: Array<{ name: string; value: string }>,
+        finishattempt: 0 | 1,
+        timeup: 0 | 1 = 0,
+    ): Promise<MoodleProcessAttemptResponse> {
+        const params: Record<string, string | number | boolean> = {}
+        params['attemptid'] = attemptId
+        params['finishattempt'] = finishattempt
+        params['timeup'] = timeup
+
+        // Build array-style parameters for each answer slot
+        for (let i = 0; i < data.length; i++) {
+            params[`data[${i}][name]`] = data[i].name
+            params[`data[${i}][value]`] = data[i].value
+        }
+
+        return this.fetchWS<MoodleProcessAttemptResponse>(
+            token,
+            'mod_quiz_process_attempt',
+            params,
+        )
     }
 
     /**

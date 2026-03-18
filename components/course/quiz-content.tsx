@@ -1,378 +1,471 @@
-"use client"
+'use client'
 
-import { useState, useMemo } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
-  CheckCircle2,
-  XCircle,
-  ChevronRight,
-  RotateCcw,
-  Trophy,
-  AlertCircle,
-  HelpCircle,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import type { QuizActivity, QuizQuestion } from "@/lib/types"
+    ChevronRight,
+    RotateCcw,
+    Trophy,
+    AlertCircle,
+    HelpCircle,
+    Loader2,
+    ArrowLeft,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import DOMPurify from 'isomorphic-dompurify'
+import type { MoodleAttemptQuestion } from '@/lib/moodle/types'
 
 interface QuizContentProps {
-  activity: QuizActivity
-  isCompleted: boolean
-  onMarkComplete: () => void
+    quizId: number
+    quizName: string
+    courseId: number
 }
 
-type QuizState = "intro" | "in-progress" | "review"
-
-export function QuizContent({ activity, isCompleted, onMarkComplete }: QuizContentProps) {
-  const [quizState, setQuizState] = useState<QuizState>(isCompleted ? "review" : "intro")
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({})
-  const [showFeedback, setShowFeedback] = useState(false)
-  const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set())
-
-  const questions = activity.questions
-  const currentQuestion = questions[currentQuestionIndex]
-  const totalQuestions = questions.length
-
-  const score = useMemo(() => {
-    let correct = 0
-    for (const q of questions) {
-      if (selectedAnswers[q.id] === q.correctAnswerId) correct++
+/**
+ * State machine for quiz attempt flow:
+ * - 'idle': Not started
+ * - 'loading': Initial load
+ * - 'in_progress': Currently answering questions
+ * - 'submitting': Saving page or finishing attempt
+ * - 'finished': Attempt completed
+ * - 'error': Error occurred
+ */
+type QuizPhase =
+    | { phase: 'idle' }
+    | { phase: 'loading' }
+    | {
+        phase: 'in_progress'
+        attemptId: number
+        currentPage: number
+        totalPages: number
+        questions: MoodleAttemptQuestion[]
+        attemptState: string
     }
-    return correct
-  }, [selectedAnswers, questions])
+    | { phase: 'submitting' }
+    | { phase: 'finished'; finalState: string }
+    | { phase: 'error'; message: string }
 
-  const scorePercent = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0
-  const passed = scorePercent >= activity.passingScore
+export function QuizContent({ quizId, quizName, courseId }: QuizContentProps) {
+    const [state, setState] = useState<QuizPhase>({ phase: 'idle' })
+    const [answers, setAnswers] = useState<Record<string, string>>({})
+    const formRef = useRef<HTMLFormElement>(null)
 
-  const handleSelectAnswer = (questionId: string, optionId: string) => {
-    if (answeredQuestions.has(questionId)) return
-    setSelectedAnswers((prev) => ({ ...prev, [questionId]: optionId }))
-  }
-
-  const handleSubmitAnswer = () => {
-    if (!selectedAnswers[currentQuestion.id]) return
-    setAnsweredQuestions((prev) => new Set(prev).add(currentQuestion.id))
-    setShowFeedback(true)
-  }
-
-  const handleNext = () => {
-    setShowFeedback(false)
-    if (currentQuestionIndex < totalQuestions - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1)
-    } else {
-      setQuizState("review")
+    /**
+     * Extract all named input values from the form.
+     * This captures all answer slots in the rendered question HTML.
+     */
+    const extractAnswerData = (): Array<{ name: string; value: string }> => {
+        if (!formRef.current) return []
+        const formData = new FormData(formRef.current)
+        const data: Array<{ name: string; value: string }> = []
+        for (const [name, value] of formData.entries()) {
+            data.push({ name, value: String(value) })
+        }
+        return data
     }
-  }
 
-  const handleRetry = () => {
-    setQuizState("in-progress")
-    setCurrentQuestionIndex(0)
-    setSelectedAnswers({})
-    setShowFeedback(false)
-    setAnsweredQuestions(new Set())
-  }
+    /**
+     * Start a new quiz attempt.
+     * If attempt is still in progress, force a new one.
+     */
+    const handleStartQuiz = async () => {
+        setState({ phase: 'loading' })
+        try {
+            let startRes = await fetch(`/api/courses/${courseId}/quiz/${quizId}/attempt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ forcenew: false }),
+            })
 
-  const handleStart = () => {
-    setQuizState("in-progress")
-    setCurrentQuestionIndex(0)
-    setSelectedAnswers({})
-    setShowFeedback(false)
-    setAnsweredQuestions(new Set())
-  }
+            let error = null
+            if (!startRes.ok) {
+                error = await startRes.json()
+                // If attempt still in progress, force a new one
+                if (error.error?.includes('attemptstillinprogress')) {
+                    startRes = await fetch(`/api/courses/${courseId}/quiz/${quizId}/attempt`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ forcenew: true }),
+                    })
+                    if (!startRes.ok) {
+                        error = await startRes.json()
+                    } else {
+                        error = null
+                    }
+                }
+            }
 
-  // Intro screen
-  if (quizState === "intro") {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col items-center gap-6 rounded-xl border border-border bg-card p-8 sm:p-12 text-center"
-      >
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-          <HelpCircle className="h-8 w-8 text-primary" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <h3 className="text-lg font-bold text-foreground">Ready for the Quiz?</h3>
-          <p className="text-sm text-muted-foreground max-w-md">
-            This quiz has <strong className="text-foreground">{totalQuestions} questions</strong>. 
-            You need <strong className="text-foreground">{activity.passingScore}%</strong> to pass. 
-            Each question has immediate feedback so you can learn as you go.
-          </p>
-        </div>
-        <Button
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={handleStart}
-        >
-          Start Quiz
-          <ChevronRight className="ml-1.5 h-4 w-4" />
-        </Button>
-      </motion.div>
-    )
-  }
+            if (error) {
+                throw new Error(error.error ?? 'Failed to start quiz')
+            }
 
-  // Review / results screen
-  if (quizState === "review") {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col gap-6"
-      >
-        {/* Score card */}
-        <div
-          className={cn(
-            "flex flex-col items-center gap-4 rounded-xl border p-8 sm:p-12 text-center",
-            passed ? "border-emerald-500/20 bg-emerald-500/5" : "border-destructive/20 bg-destructive/5"
-          )}
-        >
-          <div
-            className={cn(
-              "flex h-20 w-20 items-center justify-center rounded-full",
-              passed ? "bg-emerald-500/15" : "bg-destructive/15"
-            )}
-          >
-            {passed ? (
-              <Trophy className="h-10 w-10 text-emerald-400" />
-            ) : (
-              <AlertCircle className="h-10 w-10 text-destructive" />
-            )}
-          </div>
-          <div className="flex flex-col gap-1">
-            <h3 className="text-xl font-bold text-foreground">
-              {passed ? "Congratulations!" : "Not quite there yet"}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              You scored <strong className="text-foreground">{score}/{totalQuestions}</strong> ({scorePercent}%)
-              {passed
-                ? ` -- above the ${activity.passingScore}% passing threshold.`
-                : ` -- below the ${activity.passingScore}% passing threshold.`}
-            </p>
-          </div>
-        </div>
+            const startData = await startRes.json()
+            const attemptId = startData.attempt.id
 
-        {/* Question review */}
-        <div className="flex flex-col gap-3">
-          <h4 className="text-sm font-semibold text-foreground">Question Review</h4>
-          {questions.map((q, idx) => {
-            const userAnswer = selectedAnswers[q.id]
-            const isCorrect = userAnswer === q.correctAnswerId
-            const correctOption = q.options.find((o) => o.id === q.correctAnswerId)
-            const userOption = q.options.find((o) => o.id === userAnswer)
-
-            return (
-              <div
-                key={q.id}
-                className={cn(
-                  "rounded-lg border p-4",
-                  isCorrect ? "border-emerald-500/20 bg-emerald-500/5" : "border-destructive/20 bg-destructive/5"
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  {isCorrect ? (
-                    <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-400" />
-                  ) : (
-                    <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" />
-                  )}
-                  <div className="flex flex-col gap-1.5 min-w-0">
-                    <p className="text-xs font-semibold text-foreground">
-                      Q{idx + 1}: {q.question}
-                    </p>
-                    {!isCorrect && (
-                      <p className="text-xs text-muted-foreground">
-                        Your answer: <span className="text-destructive">{userOption?.text}</span>
-                        {" | "}Correct: <span className="text-emerald-400">{correctOption?.text}</span>
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground/80 italic">{q.explanation}</p>
-                  </div>
-                </div>
-              </div>
+            // Fetch first page of questions
+            const pageRes = await fetch(
+                `/api/courses/${courseId}/quiz/${quizId}/attempt/${attemptId}/page/0`
             )
-          })}
-        </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3">
-          {!passed && (
-            <Button
-              variant="outline"
-              className="border-border text-foreground hover:bg-secondary"
-              onClick={handleRetry}
+            if (!pageRes.ok) {
+                const error = await pageRes.json()
+                throw new Error(error.error ?? 'Failed to fetch quiz page')
+            }
+
+            const pageData = await pageRes.json()
+
+            // Try to fetch page 1 to see if there are multiple pages
+            let hasNextPage = false
+            try {
+                const nextPageRes = await fetch(
+                    `/api/courses/${courseId}/quiz/${quizId}/attempt/${attemptId}/page/1`
+                )
+                if (nextPageRes.ok) {
+                    const nextPageData = await nextPageRes.json()
+                    hasNextPage = (nextPageData.questions?.length ?? 0) > 0
+                }
+            } catch {
+                // Ignore - assume single page if this fails
+            }
+
+            setState({
+                phase: 'in_progress',
+                attemptId,
+                currentPage: 0,
+                totalPages: hasNextPage ? 2 : 1, // Approximate: 1 if no next page, 2+ if there is
+                questions: pageData.questions,
+                attemptState: pageData.attempt.state,
+            })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error'
+            setState({ phase: 'error', message })
+        }
+    }
+
+    /**
+     * Submit current page answers and move to next page, or finish.
+     */
+    const handleSubmitPage = async (shouldFinish: boolean) => {
+        if (state.phase !== 'in_progress') return
+
+        setState({ phase: 'submitting' })
+        try {
+            const answerData = extractAnswerData()
+
+            const submitRes = await fetch(
+                `/api/courses/${courseId}/quiz/${quizId}/attempt/${state.attemptId}/submit`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: answerData,
+                        finishattempt: shouldFinish,
+                        timeup: false,
+                    }),
+                }
+            )
+
+            if (!submitRes.ok) {
+                const error = await submitRes.json()
+                throw new Error(error.error ?? 'Failed to submit page')
+            }
+
+            const submitData = await submitRes.json()
+
+            if (shouldFinish) {
+                setState({ phase: 'finished', finalState: submitData.state })
+                return
+            }
+
+            // Move to next page
+            const nextPageNum = state.currentPage + 1
+            const nextPageRes = await fetch(
+                `/api/courses/${courseId}/quiz/${quizId}/attempt/${state.attemptId}/page/${nextPageNum}`
+            )
+
+            if (!nextPageRes.ok) {
+                const error = await nextPageRes.json()
+                throw new Error(error.error ?? 'Failed to fetch next page')
+            }
+
+            const nextPageData = await nextPageRes.json()
+            setAnswers({})
+
+            // Check if there's another page after this one
+            let hasAnotherPage = false
+            try {
+                const checkRes = await fetch(
+                    `/api/courses/${courseId}/quiz/${quizId}/attempt/${state.attemptId}/page/${nextPageNum + 1}`
+                )
+                if (checkRes.ok) {
+                    const checkData = await checkRes.json()
+                    hasAnotherPage = (checkData.questions?.length ?? 0) > 0
+                }
+            } catch {
+                // Ignore
+            }
+
+            setState({
+                phase: 'in_progress',
+                attemptId: state.attemptId,
+                currentPage: nextPageNum,
+                totalPages: hasAnotherPage ? nextPageNum + 2 : nextPageNum + 1,
+                questions: nextPageData.questions,
+                attemptState: nextPageData.attempt.state,
+            })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error'
+            setState({ phase: 'error', message })
+        }
+    }
+
+    /**
+     * Go back to previous page.
+     */
+    const handlePreviousPage = async () => {
+        if (state.phase !== 'in_progress' || state.currentPage === 0) return
+
+        setState({ phase: 'submitting' })
+        try {
+            // Must save current page before navigating
+            const answerData = extractAnswerData()
+
+            const submitRes = await fetch(
+                `/api/courses/${courseId}/quiz/${quizId}/attempt/${state.attemptId}/submit`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: answerData,
+                        finishattempt: false,
+                        timeup: false,
+                    }),
+                }
+            )
+
+            if (!submitRes.ok) {
+                const error = await submitRes.json()
+                throw new Error(error.error ?? 'Failed to save page')
+            }
+
+            // Fetch previous page
+            const prevPageNum = state.currentPage - 1
+            const prevPageRes = await fetch(
+                `/api/courses/${courseId}/quiz/${quizId}/attempt/${state.attemptId}/page/${prevPageNum}`
+            )
+
+            if (!prevPageRes.ok) {
+                const error = await prevPageRes.json()
+                throw new Error(error.error ?? 'Failed to fetch previous page')
+            }
+
+            const prevPageData = await prevPageRes.json()
+            setAnswers({})
+
+            setState({
+                phase: 'in_progress',
+                attemptId: state.attemptId,
+                currentPage: prevPageNum,
+                totalPages: state.totalPages,
+                questions: prevPageData.questions,
+                attemptState: prevPageData.attempt.state,
+            })
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error'
+            setState({ phase: 'error', message })
+        }
+    }
+
+    // ── Render states ──────────────────────────────────────────────────────
+
+    if (state.phase === 'idle') {
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center gap-6 rounded-xl border border-border bg-card p-8 sm:p-12 text-center"
             >
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Retry Quiz
-            </Button>
-          )}
-          {passed && !isCompleted && (
-            <Button
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={onMarkComplete}
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Mark as Complete
-            </Button>
-          )}
-        </div>
-      </motion.div>
-    )
-  }
-
-  // In-progress: question view
-  const isAnswered = answeredQuestions.has(currentQuestion.id)
-  const selectedOption = selectedAnswers[currentQuestion.id]
-  const isCorrect = selectedOption === currentQuestion.correctAnswerId
-
-  return (
-    <div className="flex flex-col gap-5">
-      {/* Progress bar */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
-          <motion.div
-            className="h-full bg-primary rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${((currentQuestionIndex + (isAnswered ? 1 : 0)) / totalQuestions) * 100}%` }}
-            transition={{ duration: 0.3 }}
-          />
-        </div>
-        <span className="text-xs font-medium text-muted-foreground tabular-nums">
-          {currentQuestionIndex + 1}/{totalQuestions}
-        </span>
-      </div>
-
-      {/* Question card */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentQuestion.id}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.2 }}
-          className="rounded-xl border border-border bg-card p-6 sm:p-8"
-        >
-          {/* Question type badge */}
-          <div className="mb-4">
-            <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-secondary-foreground">
-              {currentQuestion.type === "true-false" ? "True / False" : "Multiple Choice"}
-            </span>
-          </div>
-
-          {/* Question text */}
-          <h3 className="text-base font-semibold text-foreground mb-5 leading-relaxed">
-            {currentQuestion.question}
-          </h3>
-
-          {/* Options */}
-          <div className="flex flex-col gap-2.5">
-            {currentQuestion.options.map((option) => {
-              const isSelected = selectedOption === option.id
-              const isCorrectOption = option.id === currentQuestion.correctAnswerId
-              const showCorrect = isAnswered && isCorrectOption
-              const showIncorrect = isAnswered && isSelected && !isCorrectOption
-
-              return (
-                <button
-                  key={option.id}
-                  onClick={() => handleSelectAnswer(currentQuestion.id, option.id)}
-                  disabled={isAnswered}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-all",
-                    !isAnswered && isSelected && "border-primary bg-primary/10 text-foreground",
-                    !isAnswered && !isSelected && "border-border bg-card text-muted-foreground hover:border-primary/30 hover:bg-secondary/40",
-                    showCorrect && "border-emerald-500/40 bg-emerald-500/10 text-foreground",
-                    showIncorrect && "border-destructive/40 bg-destructive/10 text-foreground",
-                    isAnswered && !showCorrect && !showIncorrect && "border-border bg-card text-muted-foreground/50 opacity-60"
-                  )}
-                >
-                  {/* Radio indicator */}
-                  <div
-                    className={cn(
-                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                      !isAnswered && isSelected && "border-primary bg-primary",
-                      !isAnswered && !isSelected && "border-border",
-                      showCorrect && "border-emerald-400 bg-emerald-400",
-                      showIncorrect && "border-destructive bg-destructive",
-                      isAnswered && !showCorrect && !showIncorrect && "border-border"
-                    )}
-                  >
-                    {(isSelected || showCorrect) && (
-                      <div className="h-2 w-2 rounded-full bg-foreground" />
-                    )}
-                  </div>
-                  <span className="flex-1">{option.text}</span>
-                  {showCorrect && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />}
-                  {showIncorrect && <XCircle className="h-4 w-4 text-destructive shrink-0" />}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Feedback */}
-          <AnimatePresence>
-            {showFeedback && isAnswered && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div
-                  className={cn(
-                    "mt-5 rounded-lg border p-4",
-                    isCorrect ? "border-emerald-500/20 bg-emerald-500/5" : "border-destructive/20 bg-destructive/5"
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    {isCorrect ? (
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-400" />
-                    ) : (
-                      <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" />
-                    )}
-                    <div>
-                      <p className="text-xs font-semibold text-foreground mb-1">
-                        {isCorrect ? "Correct!" : "Incorrect"}
-                      </p>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {currentQuestion.explanation}
-                      </p>
-                    </div>
-                  </div>
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
+                    <HelpCircle className="h-8 w-8 text-emerald-400" />
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      </AnimatePresence>
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-lg font-bold text-foreground">Ready for the Quiz?</h3>
+                    <p className="text-sm text-muted-foreground max-w-md">
+                        Quiz: <strong className="text-foreground">{quizName}</strong>
+                        <br />
+                        Start when you&apos;re ready. Good luck!
+                    </p>
+                </div>
+                <Button
+                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    onClick={handleStartQuiz}
+                >
+                    Start Quiz
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+            </motion.div>
+        )
+    }
 
-      {/* Actions */}
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground">
-          Question {currentQuestionIndex + 1} of {totalQuestions}
+    if (state.phase === 'loading') {
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center gap-4 py-20"
+            >
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Starting quiz...</p>
+            </motion.div>
+        )
+    }
+
+    if (state.phase === 'submitting') {
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center gap-4 py-20"
+            >
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Saving...</p>
+            </motion.div>
+        )
+    }
+
+    if (state.phase === 'finished') {
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center gap-6 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-8 sm:p-12 text-center"
+            >
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/15">
+                    <Trophy className="h-10 w-10 text-emerald-400" />
+                </div>
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-xl font-bold text-foreground">Quiz Complete!</h3>
+                    <p className="text-sm text-muted-foreground max-w-md">
+                        Your attempt has been submitted. Final state: <strong className="text-foreground">{state.finalState}</strong>
+                    </p>
+                </div>
+            </motion.div>
+        )
+    }
+
+    if (state.phase === 'error') {
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col gap-4 p-4 rounded-xl border border-destructive/20 bg-destructive/5"
+            >
+                <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                        <p className="text-sm font-semibold text-foreground">Error</p>
+                        <p className="text-xs text-muted-foreground mt-1">{state.message}</p>
+                    </div>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setState({ phase: 'idle' })}
+                    className="w-fit"
+                >
+                    <RotateCcw className="h-3.5 w-3.5 mr-2" />
+                    Restart
+                </Button>
+            </motion.div>
+        )
+    }
+
+    // In-progress state
+    if (state.phase !== 'in_progress') return null
+
+    const currentQuestion = state.questions[0]
+    const isLastPage = state.currentPage === state.totalPages - 1
+
+    return (
+        <div className="flex flex-col gap-5">
+            {/* Progress bar */}
+            <div className="flex items-center gap-3">
+                <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+                    <motion.div
+                        className="h-full bg-emerald-500 rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${((state.currentPage + 1) / Math.max(state.totalPages, 1)) * 100}%` }}
+                        transition={{ duration: 0.3 }}
+                    />
+                </div>
+                <span className="text-xs font-medium text-muted-foreground tabular-nums">
+                    Page {state.currentPage + 1}
+                </span>
+            </div>
+
+            {/* Questions container */}
+            <form ref={formRef} className="flex flex-col gap-4">
+                {state.questions.map((question, idx) => (
+                    <motion.div
+                        key={`${state.attemptId}-${state.currentPage}-${idx}`}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: idx * 0.05 }}
+                        className="rounded-xl border border-border bg-card overflow-hidden"
+                    >
+                        {/* Question header */}
+                        <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-secondary/30">
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-semibold text-emerald-400">
+                                {question.number}
+                            </div>
+                            <p className="text-sm font-semibold text-foreground">
+                                {question.type.charAt(0).toUpperCase() + question.type.slice(1)}
+                            </p>
+                        </div>
+
+                        {/* Question HTML (rendered with DOMPurify sanitization) */}
+                        <div className="px-4 py-4">
+                            <div
+                                className="prose prose-invert max-w-none text-sm [&_input]:form-input [&_input]:bg-secondary [&_input]:border-border [&_input]:rounded [&_input]:px-3 [&_input]:py-2 [&_input]:text-foreground [&_select]:form-select [&_select]:bg-secondary [&_select]:border-border [&_select]:rounded [&_select]:px-3 [&_select]:py-2 [&_select]:text-foreground [&_textarea]:form-textarea [&_textarea]:bg-secondary [&_textarea]:border-border [&_textarea]:rounded [&_textarea]:px-3 [&_textarea]:py-2 [&_textarea]:text-foreground"
+                                dangerouslySetInnerHTML={{
+                                    __html: DOMPurify.sanitize(question.html, {
+                                        USE_PROFILES: { html: true },
+                                        FORBID_TAGS: ['script', 'style'],
+                                        FORBID_ATTR: ['onerror', 'onload', 'onclick'],
+                                    }),
+                                }}
+                            />
+                        </div>
+                    </motion.div>
+                ))}
+            </form>
+
+            {/* Navigation buttons */}
+            <div className="flex items-center justify-between gap-2 pt-2">
+                <Button
+                    variant="outline"
+                    disabled={state.currentPage === 0}
+                    onClick={handlePreviousPage}
+                    className="gap-2"
+                >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Previous
+                </Button>
+
+                <span className="text-xs text-muted-foreground">
+                    Page {state.currentPage + 1}
+                </span>
+
+                <Button
+                    className="bg-emerald-600 text-white hover:bg-emerald-700 gap-2"
+                    onClick={() => handleSubmitPage(isLastPage)}
+                >
+                    {isLastPage ? 'Finish Quiz' : 'Next Page'}
+                    <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+            </div>
         </div>
-        {!isAnswered ? (
-          <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-            disabled={!selectedOption}
-            onClick={handleSubmitAnswer}
-          >
-            Submit Answer
-          </Button>
-        ) : (
-          <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={handleNext}
-          >
-            {currentQuestionIndex < totalQuestions - 1 ? (
-              <>
-                Next Question
-                <ChevronRight className="ml-1.5 h-4 w-4" />
-              </>
-            ) : (
-              "View Results"
-            )}
-          </Button>
-        )}
-      </div>
-    </div>
-  )
+    )
 }
+
