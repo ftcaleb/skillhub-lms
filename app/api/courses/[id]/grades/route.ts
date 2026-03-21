@@ -32,7 +32,7 @@ export async function GET(
         }
 
         // Call Moodle API
-        const grades = await moodleService.getGradeItems(session.token, course_id)
+        const grades = await moodleService.getGradeItems(session.token, course_id, session.userId)
 
         return NextResponse.json(grades)
     } catch (error) {

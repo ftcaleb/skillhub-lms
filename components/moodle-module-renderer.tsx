@@ -18,15 +18,18 @@ import {
     Tag,
     Clock,
     RefreshCw,
+    Loader2,
 } from 'lucide-react'
 import { SanitizedHTML } from '@/components/sanitized-html'
 import { Button } from '@/components/ui/button'
 import { QuizContent } from '@/components/course/quiz-content'
+import { cn } from '@/lib/utils'
 import type { HydratedMoodleModule, MoodleFileContent } from '@/lib/moodle/types'
 
 interface MoodleModuleRendererProps {
     module: HydratedMoodleModule
     courseId: number
+    onCompletionUpdated?: () => void
 }
 
 /** Build a proxied URL so the file download goes through our server-side token appender */
@@ -48,6 +51,67 @@ function useModuleDisplay(modname: string) {
         folder: { icon: Folder, label: 'Folder', color: 'text-orange-400' },
     }
     return map[modname] ?? { icon: BookOpen, label: modname, color: 'text-muted-foreground' }
+}
+
+interface CompletionButtonProps {
+    courseId: number
+    cmid: number
+    completionData?: { state: number; isautomatic?: boolean; hascompletion?: boolean }
+    onUpdated?: () => void
+}
+
+function CompletionButton({ courseId, cmid, completionData, onUpdated }: CompletionButtonProps) {
+    const [isLoading, setIsLoading] = useState(false)
+
+    if (!completionData?.hascompletion) return null
+    if (completionData.isautomatic) return null
+
+    const isDone = completionData.state >= 1
+
+    const handleMarkAsDone = async () => {
+        if (isLoading || isDone) return
+        setIsLoading(true)
+
+        try {
+            const resp = await fetch(`/api/courses/${courseId}/completion`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cmid, completed: true }),
+            })
+            if (!resp.ok) throw new Error('Failed to update completion status')
+
+            // Re-fetch the completion status endpoint over the wire.
+            await fetch(`/api/courses/${courseId}/completion`, { cache: 'no-store' })
+
+            if (onUpdated) onUpdated()
+        } catch (error) {
+            console.error('Mark as done failed:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    return (
+        <Button
+            onClick={handleMarkAsDone}
+            disabled={isLoading || isDone}
+            className={cn(
+                'mt-4 w-full',
+                isDone ? 'bg-emerald-500/90 text-white' : 'bg-foreground text-background',
+            )}
+        >
+            {isLoading ? (
+                <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                </>
+            ) : isDone ? (
+                <span className="text-emerald-200">Completed ✓</span>
+            ) : (
+                'Mark as Done'
+            )}
+        </Button>
+    )
 }
 
 // ── Renderers per modname ──────────────────────────────────────────────────
@@ -241,7 +305,7 @@ function transformVideoLinksToIframes(html: string): string {
  * Renders page.content as native HTML with prose styling (no accordion).
  * The content is fetched server-side and injected directly for a clean, expansive UX.
  */
-function PageModule({ mod }: { mod: HydratedMoodleModule }) {
+function PageModule({ mod, courseId, onCompletionUpdated }: { mod: HydratedMoodleModule; courseId: number; onCompletionUpdated?: () => void }) {
     // pageDetail is set during hydration
     let content = mod.pageDetail?.content ?? ''
 
@@ -284,6 +348,13 @@ function PageModule({ mod }: { mod: HydratedMoodleModule }) {
                 <SanitizedHTML
                     html={content}
                     className="prose prose-invert max-w-none text-foreground [&_h1]:text-4xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-6 [&_h1]:text-foreground [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h2]:text-foreground [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-foreground [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:mt-5 [&_h4]:mb-2 [&_p]:mb-5 [&_p]:leading-7 [&_p]:text-sm [&_ul]:mb-6 [&_ul]:list-disc [&_ul]:pl-8 [&_ul]:space-y-2 [&_ol]:mb-6 [&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:space-y-2 [&_li]:text-sm [&_li]:leading-6 [&_a]:text-violet-400 [&_a]:hover:text-violet-300 [&_a]:underline [&_a]:transition-colors [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_em]:text-foreground [&_code]:bg-secondary/50 [&_code]:px-2.5 [&_code]:py-1.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_code]:text-purple-300 [&_pre]:bg-secondary/70 [&_pre]:p-5 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-sm [&_blockquote]:border-l-4 [&_blockquote]:border-violet-400/50 [&_blockquote]:pl-5 [&_blockquote]:py-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_blockquote]:bg-secondary/20 [&_blockquote]:rounded-r [&_table]:w-full [&_table]:border-collapse [&_table]:my-6 [&_th]:border [&_th]:border-border/50 [&_th]:px-4 [&_th]:py-3 [&_th]:bg-secondary/50 [&_th]:text-left [&_th]:font-semibold [&_th]:text-foreground [&_td]:border [&_td]:border-border/50 [&_td]:px-4 [&_td]:py-3 [&_td]:text-sm [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto [&_img]:my-6 [&_img]:shadow-md [&_.video-embed]:w-full [&_.video-embed]:my-6 [&_.video-embed]:flex [&_.video-embed]:justify-center [&_iframe]:w-full [&_iframe]:rounded-lg [&_iframe]:aspect-video [&_video]:rounded-lg [&_video]:max-w-full [&_video]:my-6"
+                />
+
+                <CompletionButton
+                    courseId={courseId}
+                    cmid={mod.id}
+                    completionData={mod.completiondata}
+                    onUpdated={onCompletionUpdated}
                 />
             </div>
         </div>
@@ -554,7 +625,7 @@ function GenericModule({ mod }: { mod: HydratedMoodleModule }) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function MoodleModuleRenderer({ module: mod, courseId }: MoodleModuleRendererProps) {
+export function MoodleModuleRenderer({ module: mod, courseId, onCompletionUpdated }: MoodleModuleRendererProps) {
     // Explicit switch. No silent return null anywhere.
     switch (mod.modname) {
         case 'label':
@@ -564,7 +635,7 @@ export function MoodleModuleRenderer({ module: mod, courseId }: MoodleModuleRend
         case 'url':
             return <UrlModule mod={mod} />
         case 'page':
-            return <PageModule mod={mod} />
+            return <PageModule mod={mod} courseId={courseId} onCompletionUpdated={onCompletionUpdated} />
         case 'assign':
             return <AssignModule mod={mod} />
         case 'video':

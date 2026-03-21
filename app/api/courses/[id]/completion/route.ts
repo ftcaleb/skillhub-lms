@@ -32,7 +32,7 @@ export async function GET(
         }
 
         // Call Moodle API
-        const completion = await moodleService.getActivitiesCompletionStatus(session.token, course_id)
+        const completion = await moodleService.getActivitiesCompletionStatus(session.token, course_id, session.userId)
 
         return NextResponse.json(completion)
     } catch (error) {

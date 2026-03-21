@@ -715,7 +715,7 @@ export function QuizContent({
 
                 <div className="flex flex-col gap-2">
                     <h3 className="text-xl font-bold" style={{ color: 'var(--quiz-text-primary)' }}>
-                        ✅ Quiz Complete!
+                        Quiz Complete!
                     </h3>
                     <p className="text-sm max-w-md" style={{ color: 'var(--quiz-text-secondary)' }}>
                         Your attempt has been submitted successfully.

@@ -398,7 +398,7 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                                         setActiveModuleId(mod.id)
                                     }}
                                   >
-                                    <MoodleModuleRenderer module={mod} courseId={course.id} />
+                                    <MoodleModuleRenderer module={mod} courseId={course.id} onCompletionUpdated={fetchContents} />
                                   </div>
                                 </div>
                               ))}
