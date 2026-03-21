@@ -32,6 +32,22 @@ interface QuizContentProps {
 
 type QuizPhase =
     | { phase: 'idle' }
+    | { phase: 'loading_start' }
+    | {
+        phase: 'start_screen'
+        attempts: Array<{
+            id: number
+            state: string
+            grade: number | null
+            timestart: number
+            timefinish: number | null
+        }>
+        accessInfo: {
+            canattempt: boolean
+            preventnewattemptreasons: string[]
+        }
+        maxAttempts: number
+    }
     | { phase: 'loading' }
     | {
         phase: 'in_progress'
@@ -180,7 +196,48 @@ export function QuizContent({
     const [sequenceChecks, setSequenceChecks] = useState<Record<number, number>>({}) // slot → value
     const [flagged, setFlagged] = useState<Set<number>>(new Set())     // slot numbers
     const [showSubmitModal, setShowSubmitModal] = useState(false)
-    const formRef = useRef<HTMLFormElement>(null)
+    // Load start screen data
+    useEffect(() => {
+        if (state.phase !== 'idle') return
+
+        const loadStartScreen = async () => {
+            setState({ phase: 'loading_start' })
+            try {
+                // Get user attempts
+                const attemptsRes = await fetch(`/api/courses/${courseId}/quiz/${quizId}/attempts`)
+                if (!attemptsRes.ok) throw new Error('Failed to load attempts')
+                const attemptsData = await attemptsRes.json()
+
+                // Get access information
+                const accessRes = await fetch(`/api/courses/${courseId}/quiz/${quizId}/access`)
+                if (!accessRes.ok) throw new Error('Failed to load access info')
+                const accessData = await accessRes.json()
+
+                // View quiz (fire-and-forget)
+                fetch(`/api/courses/${courseId}/quiz/${quizId}/view`, { method: 'POST' }).catch(() => {})
+
+                setState({
+                    phase: 'start_screen',
+                    attempts: attemptsData.attempts.map((a: any) => ({
+                        id: a.id,
+                        state: a.state,
+                        grade: a.grade,
+                        timestart: a.timestart,
+                        timefinish: a.timefinish,
+                    })),
+                    accessInfo: {
+                        canattempt: accessData.canattempt,
+                        preventnewattemptreasons: accessData.preventnewattemptreasons,
+                    },
+                    maxAttempts,
+                })
+            } catch (error) {
+                setState({ phase: 'error', message: error instanceof Error ? error.message : 'Failed to load quiz' })
+            }
+        }
+
+        loadStartScreen()
+    }, [state.phase, courseId, quizId, maxAttempts])
 
     // Start quiz attempt
     const handleStartQuiz = async () => {
@@ -260,6 +317,9 @@ export function QuizContent({
                 attemptState: startData.attempt.state,
                 timeStart,
             })
+
+            // View attempt (fire-and-forget)
+            fetch(`/api/courses/${courseId}/quiz/${quizId}/attempt/${attemptId}/view`, { method: 'POST' }).catch(() => {})
         } catch (err) {
             setState({ phase: 'error', message: err instanceof Error ? err.message : 'Unknown error' })
         }
@@ -333,6 +393,15 @@ export function QuizContent({
         setState({ phase: 'submitting' })
 
         try {
+            // Get attempt summary before submitting
+            const summaryRes = await fetch(
+                `/api/courses/${courseId}/quiz/${quizId}/attempt/${state.attemptId}/summary`
+            )
+            if (summaryRes.ok) {
+                const summary = await summaryRes.json()
+                console.log('Attempt summary:', summary)
+            }
+
             // Build all answer data
             const data: Array<{ name: string; value: string }> = []
             for (const q of state.questions) {
@@ -358,13 +427,35 @@ export function QuizContent({
                 throw new Error(err.error ?? 'Failed to submit quiz')
             }
 
+            // Get attempt review after finishing
+            const reviewRes = await fetch(
+                `/api/courses/${courseId}/quiz/${quizId}/attempt/${state.attemptId}/review`
+            )
+            let review = null
+            if (reviewRes.ok) {
+                review = await reviewRes.json()
+                console.log('Attempt review:', review)
+            }
+
+            // Get feedback for grade if available
+            let feedback = null
+            if (review?.grade) {
+                const feedbackRes = await fetch(
+                    `/api/courses/${courseId}/quiz/${quizId}/feedback/${review.grade}`
+                )
+                if (feedbackRes.ok) {
+                    feedback = await feedbackRes.json()
+                    console.log('Quiz feedback:', feedback)
+                }
+            }
+
             const totalMarks = state.questions.reduce((sum, q) => sum + q.maxMark, 0)
             const answeredSlots = Object.keys(answers).length
 
             setState({
                 phase: 'finished',
                 finalState: 'finished',
-                sumGrades: answeredSlots, // Approximate — real score comes from review
+                sumGrades: review?.grade ?? answeredSlots, // Use real grade from review
                 maxGrade: totalMarks,
             })
         } catch (err) {
@@ -427,6 +518,21 @@ export function QuizContent({
         )
     }
 
+    // ─── Render: Loading Start ─────────────────────────────────────────────
+
+    if (state.phase === 'loading_start') {
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center gap-4 py-20"
+            >
+                <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--quiz-accent-primary)' }} />
+                <p className="text-sm" style={{ color: 'var(--quiz-text-secondary)' }}>Loading quiz information...</p>
+            </motion.div>
+        )
+    }
+
     // ─── Render: Loading ───────────────────────────────────────────────────
 
     if (state.phase === 'loading') {
@@ -438,6 +544,133 @@ export function QuizContent({
             >
                 <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--quiz-accent-primary)' }} />
                 <p className="text-sm" style={{ color: 'var(--quiz-text-secondary)' }}>Loading quiz...</p>
+            </motion.div>
+        )
+    }
+
+    // ─── Render: Start Screen ──────────────────────────────────────────────
+
+    if (state.phase === 'start_screen') {
+        const hasAttempts = state.attempts.length > 0
+        const canAttempt = state.accessInfo.canattempt
+        const preventReasons = state.accessInfo.preventnewattemptreasons
+
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col gap-6 rounded-2xl border p-8 sm:p-12"
+                style={{
+                    borderColor: 'var(--quiz-border-subtle)',
+                    background: 'var(--quiz-bg-card)',
+                }}
+            >
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full"
+                            style={{ background: 'rgba(37, 99, 235, 0.1)' }}>
+                            <HelpCircle className="h-6 w-6" style={{ color: 'var(--quiz-accent-primary)' }} />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold" style={{ color: 'var(--quiz-text-primary)' }}>
+                                {quizName}
+                            </h3>
+                            <p className="text-sm" style={{ color: 'var(--quiz-text-secondary)' }}>
+                                Quiz Overview
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Quiz Info */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="rounded-lg border p-4"
+                            style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-elevated)' }}>
+                            <p className="quiz-meta-label">TIME LIMIT</p>
+                            <p className="text-sm mt-1" style={{ color: 'var(--quiz-text-secondary)' }}>
+                                {timelimit > 0 ? `${Math.floor(timelimit / 60)} minutes` : 'No time limit'}
+                            </p>
+                        </div>
+                        <div className="rounded-lg border p-4"
+                            style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-elevated)' }}>
+                            <p className="quiz-meta-label">ATTEMPTS ALLOWED</p>
+                            <p className="text-sm mt-1" style={{ color: 'var(--quiz-text-secondary)' }}>
+                                {state.maxAttempts > 0 ? `${state.maxAttempts} attempt(s)` : 'Unlimited attempts'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Previous Attempts */}
+                    {hasAttempts && (
+                        <div className="rounded-lg border p-4"
+                            style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-elevated)' }}>
+                            <p className="quiz-meta-label mb-3">PREVIOUS ATTEMPTS</p>
+                            <div className="space-y-2">
+                                {state.attempts.map((attempt, idx) => (
+                                    <div key={attempt.id} className="flex items-center justify-between text-sm">
+                                        <span style={{ color: 'var(--quiz-text-secondary)' }}>
+                                            Attempt {idx + 1}
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span style={{ color: 'var(--quiz-text-muted)' }}>
+                                                {attempt.state}
+                                            </span>
+                                            {attempt.grade !== null && (
+                                                <span className="font-medium" style={{ color: 'var(--quiz-text-primary)' }}>
+                                                    Grade: {attempt.grade}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Access Restrictions */}
+                    {!canAttempt && preventReasons.length > 0 && (
+                        <div className="rounded-lg border p-4"
+                            style={{
+                                borderColor: 'rgba(239, 68, 68, 0.2)',
+                                background: 'rgba(239, 68, 68, 0.05)',
+                            }}>
+                            <div className="flex items-start gap-2">
+                                <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm font-semibold" style={{ color: 'var(--quiz-text-primary)' }}>
+                                        Cannot Start Quiz
+                                    </p>
+                                    <ul className="text-xs mt-1 space-y-1" style={{ color: 'var(--quiz-text-secondary)' }}>
+                                        {preventReasons.map((reason, idx) => (
+                                            <li key={idx}>• {reason}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4">
+                    {canAttempt ? (
+                        <Button
+                            className="flex-1 text-white gap-2"
+                            style={{ background: 'var(--quiz-accent-primary)' }}
+                            onClick={handleStartQuiz}
+                        >
+                            Start Quiz
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => setState({ phase: 'idle' })}
+                        >
+                            Back to Course
+                        </Button>
+                    )}
+                </div>
             </motion.div>
         )
     }

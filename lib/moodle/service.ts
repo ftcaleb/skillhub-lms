@@ -20,6 +20,13 @@ import type {
     MoodleStartAttemptResponse,
     MoodleAttemptDataResponse,
     MoodleProcessAttemptResponse,
+    MoodleUserAttemptsResponse,
+    MoodleAttemptAccessInfo,
+    MoodleAttemptSummaryResponse,
+    MoodleAttemptReviewResponse,
+    MoodleQuizFeedbackResponse,
+    MoodleGradeItemsResponse,
+    MoodleActivitiesCompletionStatus,
 } from './types'
 
 class MoodleService {
@@ -300,6 +307,170 @@ class MoodleService {
             token,
             'mod_quiz_process_attempt',
             params,
+        )
+    }
+
+    /**
+     * Get all attempts for a user on a specific quiz.
+     */
+    async getUserAttempts(
+        token: string,
+        quizId: number,
+        userId: number,
+        status: 'all' | 'finished' | 'unfinished' = 'all',
+        includepreviews: 0 | 1 = 0,
+    ): Promise<MoodleUserAttemptsResponse> {
+        return this.fetchWS<MoodleUserAttemptsResponse>(
+            token,
+            'mod_quiz_get_user_attempts',
+            { quizid: quizId, userid: userId },
+        )
+    }
+
+    /**
+     * Get access information for attempting a quiz.
+     */
+    async getAttemptAccessInformation(
+        token: string,
+        quizId: number,
+        attemptId: number = 0,
+    ): Promise<MoodleAttemptAccessInfo> {
+        return this.fetchWS<MoodleAttemptAccessInfo>(
+            token,
+            'mod_quiz_get_attempt_access_information',
+            { quizid: quizId, attemptid: attemptId },
+        )
+    }
+
+    /**
+     * Log that the user viewed the attempt.
+     */
+    async viewAttempt(
+        token: string,
+        attemptId: number,
+        page: number = 0,
+    ): Promise<{ status: boolean; warnings: unknown[] }> {
+        return this.fetchWS(
+            token,
+            'mod_quiz_view_attempt',
+            { attemptid: attemptId, page },
+        )
+    }
+
+    /**
+     * Get summary of attempt before submission.
+     */
+    async getAttemptSummary(
+        token: string,
+        attemptId: number,
+    ): Promise<MoodleAttemptSummaryResponse> {
+        return this.fetchWS<MoodleAttemptSummaryResponse>(
+            token,
+            'mod_quiz_get_attempt_summary',
+            { attemptid: attemptId },
+        )
+    }
+
+    /**
+     * Log that the user viewed the attempt summary.
+     */
+    async viewAttemptSummary(
+        token: string,
+        attemptId: number,
+    ): Promise<{ status: boolean; warnings: unknown[] }> {
+        return this.fetchWS(
+            token,
+            'mod_quiz_view_attempt_summary',
+            { attemptid: attemptId },
+        )
+    }
+
+    /**
+     * Log that the user viewed the quiz.
+     */
+    async viewQuiz(
+        token: string,
+        quizId: number,
+    ): Promise<{ status: boolean; warnings: unknown[] }> {
+        return this.fetchWS(
+            token,
+            'mod_quiz_view_quiz',
+            { quizid: quizId },
+        )
+    }
+
+    /**
+     * Get completion status of activities in a course.
+     */
+    async getActivitiesCompletionStatus(
+        token: string,
+        courseId: number,
+        userId: number,
+    ): Promise<MoodleActivitiesCompletionStatus> {
+        return this.fetchWS<MoodleActivitiesCompletionStatus>(
+            token,
+            'core_completion_get_activities_completion_status',
+            { courseid: courseId, userid: userId },
+        )
+    }
+
+    /**
+     * Update completion status manually for an activity.
+     */
+    async updateActivityCompletionStatusManually(
+        token: string,
+        cmid: number,
+        completed: 0 | 1,
+    ): Promise<{ status: boolean; warnings: unknown[] }> {
+        return this.fetchWS(
+            token,
+            'core_completion_update_activity_completion_status_manually',
+            { cmid, completed },
+        )
+    }
+
+    /**
+     * Get review of a finished attempt.
+     */
+    async getAttemptReview(
+        token: string,
+        attemptId: number,
+        page: number = -1,
+    ): Promise<MoodleAttemptReviewResponse> {
+        return this.fetchWS<MoodleAttemptReviewResponse>(
+            token,
+            'mod_quiz_get_attempt_review',
+            { attemptid: attemptId, page },
+        )
+    }
+
+    /**
+     * Get feedback for a grade.
+     */
+    async getQuizFeedbackForGrade(
+        token: string,
+        quizId: number,
+        grade: number,
+    ): Promise<MoodleQuizFeedbackResponse> {
+        return this.fetchWS<MoodleQuizFeedbackResponse>(
+            token,
+            'mod_quiz_get_quiz_feedback_for_grade',
+            { quizid: quizId, grade },
+        )
+    }
+
+    /**
+     * Get grade items for a user in a course.
+     */
+    async getGradeItems(
+        token: string,
+        courseId: number,
+        userId: number,
+    ): Promise<MoodleGradeItemsResponse> {
+        return this.fetchWS<MoodleGradeItemsResponse>(
+            token,
+            'gradereport_user_get_grade_items',
+            { courseid: courseId, userid: userId },
         )
     }
 

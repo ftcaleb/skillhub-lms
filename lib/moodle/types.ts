@@ -300,6 +300,114 @@ export interface MoodleAttemptDataResponse {
 }
 
 /**
+ * Response from mod_quiz_get_user_attempts.
+ */
+export interface MoodleUserAttemptsResponse {
+    attempts: MoodleQuizAttempt[]
+    warnings: MoodleWarning[]
+}
+
+/**
+ * Response from mod_quiz_get_attempt_access_information.
+ */
+export interface MoodleAttemptAccessInfo {
+    accessrules: string[]
+    activerulenames: string[]
+    preventnewattemptreasons: string[]
+    canattempt: boolean
+    canpreview: boolean
+    canreviewmyattempts: boolean
+    isfinished: boolean
+    warnings: MoodleWarning[]
+}
+
+/**
+ * Response from mod_quiz_get_attempt_summary.
+ */
+export interface MoodleAttemptSummaryResponse {
+    questions: Array<{
+        slot: number
+        number: number
+        state: string // 'todo' | 'complete' | 'invalid' | 'gradedright' | 'gradedwrong' | 'gradedpartial'
+        status: string
+        flagged: boolean
+    }>
+    warnings: MoodleWarning[]
+}
+
+/**
+ * Response from mod_quiz_get_attempt_review.
+ */
+export interface MoodleAttemptReviewResponse {
+    grade: string // e.g. "8.00"
+    attempt: MoodleQuizAttempt
+    additionaldata: unknown[]
+    questions: MoodleAttemptQuestion[]
+    warnings: MoodleWarning[]
+}
+
+/**
+ * Response from mod_quiz_get_quiz_feedback_for_grade.
+ */
+export interface MoodleQuizFeedbackResponse {
+    feedbacktext: string
+    warnings: MoodleWarning[]
+}
+
+/**
+ * Response from gradereport_user_get_grade_items.
+ */
+export interface MoodleGradeItemsResponse {
+    usergrades: Array<{
+        user: { id: number; username: string }
+        gradeitems: Array<{
+            id: number
+            itemname: string
+            iteminstance: number
+            itemmodule: string
+            itemnumber: number
+            idnumber: string
+            categoryid: number
+            outcomeid: number
+            scaleid: number
+            locked: number
+            cmid: number
+            graderaw: number | null
+            gradedatesubmitted: number | null
+            gradedategraded: number | null
+            grademin: number
+            grademax: number
+            gradehiddenbydate: number
+            gradeneedsupdate: number
+            gradeishidden: number
+            gradeislocked: number
+            gradeisoverridden: number
+            gradeformatted: string
+            feedback: string
+            feedbackformat: number
+        }>
+    }>
+    warnings: MoodleWarning[]
+}
+
+/**
+ * Response from core_completion_get_activities_completion_status.
+ */
+export interface MoodleActivitiesCompletionStatus {
+    statuses: Array<{
+        cmid: number
+        modname: string
+        instance: number
+        state: number // 0=incomplete, 1=complete, 2=complete-pass, 3=complete-fail
+        timecompleted: number
+        tracking: number // 0=manual, 1=automatic, 2=manual (legacy)
+        overrideby: number | null
+        valueused: boolean
+    }>
+    warnings: MoodleWarning[]
+}
+
+/**
  * Response from mod_quiz_process_attempt.
  * Indicates the attempt state after submitting answers.
  */
