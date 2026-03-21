@@ -97,61 +97,129 @@ export function parseQuestionHtml(
 
     // Parse based on question type
     if (type === 'multichoice' || type === 'truefalse') {
-      // Extract radio/checkbox inputs and their labels
-      // Look for any div that contains "answer" in its class
-      const answerBlockMatch = html.match(
-        /<div[^>]*class="[^"]*answer[^"]*"[^>]*>([\s\S]*?)<\/div>/i
-      )
-      const answerHtml = answerBlockMatch ? answerBlockMatch[1] : html
+      // Try DOM parsing first (in browser) for robust extraction
+      let parsedOptions: ParsedOption[] = []
+      let inputName = ''
+      let selectedValue: string | null = null
 
-      // Match individual options
-      // 1. Look for <div class="r0"> or <div class="r1"> which usually wraps an option
-      const optionBlockRegex = /<div[^>]*class="[^"]*r[01][^"]*"[^>]*>([\s\S]*?)<\/div>/gi
-      let optionMatch
-      let idx = 0
+      if (typeof DOMParser !== 'undefined') {
+        try {
+          const doc = new DOMParser().parseFromString(html, 'text/html')
 
-      while ((optionMatch = optionBlockRegex.exec(answerHtml)) !== null) {
-        const blockHtml = optionMatch[1]
-        const inputMatch = blockHtml.match(/<input[^>]*type="(?:radio|checkbox)"[^>]*name="([^"]*)"[^>]*value="([^"]*)"([^>]*)>/i)
-        const labelMatch = blockHtml.match(/<label[^>]*>([\s\S]*?)<\/label>/i)
+          // Extract question text from qtext if not already set
+          const qtextEl = doc.querySelector('.qtext')
+          if (qtextEl) {
+            const text = qtextEl.innerHTML.trim()
+            if (text) result.questionText = text
+          }
 
-        if (inputMatch) {
-          if (!result.inputName) result.inputName = inputMatch[1]
-          
-          const checked = inputMatch[3].includes('checked')
-          // Strip inner tags from label, but keep content
-          const labelText = labelMatch ? labelMatch[1].replace(/<[^>]*>/g, '').trim() : `Option ${idx + 1}`
-          
+          // Extract sequence check hidden input if missing
+          if (!result.sequenceCheckName) {
+            const seqEl = doc.querySelector('input[name$=":sequencecheck"]')
+            if (seqEl instanceof HTMLInputElement) {
+              result.sequenceCheckName = seqEl.name
+              result.sequenceCheckValue = seqEl.value
+            }
+          }
+
+          const answerInputs = Array.from(
+            doc.querySelectorAll('input[type="radio"], input[type="checkbox"]'),
+          )
+
+          let optionIndex = 0
+          for (const input of answerInputs) {
+            const inputEl = input as HTMLInputElement
+            const name = inputEl.name || inputEl.getAttribute('name')
+            const value = inputEl.value || inputEl.getAttribute('value')
+            if (!name || value === null) continue
+
+            // Skip hidden sequencecheck / flag inputs
+            if (name.endsWith(':sequencecheck') || name.endsWith(':flagged') || name.includes('_:flagged')) continue
+
+            if (!inputName) inputName = name
+            const checked = inputEl.checked
+
+            // Determine label text by aria-labelledby or nearby answer label
+            let labelText = ''
+            const labelledBy = input.getAttribute('aria-labelledby')
+            if (labelledBy) {
+              const labelEl = doc.getElementById(labelledBy)
+              if (labelEl) {
+                labelText = labelEl.textContent?.trim() ?? ''
+              }
+            }
+
+            if (!labelText) {
+              // Find nearby answer text within common Moodle answer wrappers
+              const answerWrapper = input.closest('.r0, .r1, .answer')
+              if (answerWrapper) {
+                const labelEl = answerWrapper.querySelector('.answer, [data-region="answer-label"], label')
+                if (labelEl) {
+                  labelText = labelEl.textContent?.trim() ?? ''
+                }
+              }
+            }
+
+            if (!labelText) {
+              // Fallback: text nodes after input
+              const nextText = input.nextElementSibling?.textContent?.trim()
+              if (nextText) labelText = nextText
+            }
+
+            if (!labelText) labelText = `Option ${optionIndex + 1}`
+
+            parsedOptions.push({
+              value,
+              label: labelText.replace(/\s+/g, ' ').trim(),
+              letter: LETTERS[optionIndex] ?? String(optionIndex + 1),
+              checked,
+            })
+
+            if (checked) selectedValue = value
+            optionIndex++
+          }
+
+          if (parsedOptions.length > 0) {
+            result.options = parsedOptions
+            result.inputName = inputName
+            result.selectedValue = selectedValue
+            result.parsed = true
+          }
+        } catch {
+          // DOMParser may fail in non-browser contexts; fallback to regex below
+        }
+      }
+
+      // Fallback to regex parser for environments without DOMParser or if DOM parsing failed
+      if (!result.parsed) {
+        const answerBlockMatch = html.match(
+          /<div[^>]*class="[^"]*answer[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+        )
+        const answerHtml = answerBlockMatch ? answerBlockMatch[1] : html
+
+        const inputRegex = /<input[^>]*type="(?:radio|checkbox)"[^>]*name="([^"]*)"[^>]*value="([^"]*)"([^>]*)>/gi
+        let inputM
+        let idx = 0
+        while ((inputM = inputRegex.exec(answerHtml)) !== null) {
+          const name = inputM[1]
+          const value = inputM[2]
+          const attrs = inputM[3]
+          if (!result.inputName) result.inputName = name
+          const checked = attrs.includes('checked')
           result.options.push({
-            value: inputMatch[2],
-            label: labelText,
+            value,
+            label: `Option ${idx + 1}`,
             letter: LETTERS[idx] ?? String(idx + 1),
             checked,
           })
-
-          if (checked) result.selectedValue = inputMatch[2]
+          if (checked) result.selectedValue = value
           idx++
         }
-      }
 
-      // If that failed, fall back to the old aggressive regex
-      if (result.options.length === 0) {
-        const inputRegex = /<input[^>]*type="(?:radio|checkbox)"[^>]*name="([^"]*)"[^>]*value="([^"]*)"([^>]*)>/gi
-        let inputM
-        while ((inputM = inputRegex.exec(answerHtml)) !== null) {
-          if (!result.inputName) result.inputName = inputM[1]
-          const isChecked = inputM[3].includes('checked')
-          result.options.push({
-            value: inputM[2],
-            label: `Option ${result.options.length + 1}`,
-            letter: LETTERS[result.options.length] ?? String(result.options.length + 1),
-            checked: isChecked,
-          })
-          if (isChecked) result.selectedValue = inputM[2]
+        if (result.options.length > 0) {
+          result.parsed = true
         }
       }
-
-      if (result.options.length > 0) result.parsed = true
     } else if (type === 'shortanswer' || type === 'numerical') {
       // Extract text input
       const inputMatch = html.match(

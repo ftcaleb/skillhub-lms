@@ -182,10 +182,26 @@ function UrlModule({ mod }: { mod: HydratedMoodleModule }) {
  * This ensures authenticated file access without exposing the token.
  */
 function rewritePluginfileUrls(html: string): string {
-    return html.replace(
-        /(src|href)="(https?:\/\/[^"]*pluginfile\.php[^"]*)"/g,
-        (_, attr, url) => `${attr}="/api/courses/file?url=${encodeURIComponent(url)}"`
-    )
+    try {
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(html, 'text/html')
+        const urlAttrs = ['src', 'href', 'poster', 'data']
+
+        for (const el of doc.querySelectorAll('[src], [href], [poster], [data]')) {
+            for (const attr of urlAttrs) {
+                const value = el.getAttribute(attr)
+                if (!value) continue
+                if (value.includes('pluginfile.php')) {
+                    if (value.startsWith('/api/courses/file?url=')) continue
+                    el.setAttribute(attr, `/api/courses/file?url=${encodeURIComponent(value)}`)
+                }
+            }
+        }
+
+        return doc.body.innerHTML
+    } catch (error) {
+        return html.replace(/(src|href|poster|data)=["']?(https?:\/\/(?:[^"'>]+pluginfile\.php[^"'>]+))["']?/gi, (_, attr, url) => `${attr}="/api/courses/file?url=${encodeURIComponent(url)}"`)
+    }
 }
 
 /**
@@ -196,24 +212,22 @@ function rewritePluginfileUrls(html: string): string {
  * This allows videos embedded as links in page content to display as players
  */
 function transformVideoLinksToIframes(html: string): string {
-    // YouTube: watch?v=ID, youtu.be/ID, youtube.com/embed/ID
-    // More robust regex to handle any attributes and parameters like &list=
     html = html.replace(
-        /<a\s+[^>]*href=["']?(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtu\.be\/)([^"'\s&?]+)[^"']*?)["']?[^>]*>([\s\S]*?)<\/a>/gi,
+        /<a\s+[^>]*href=["']?(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^"'\s&?]+)[^"']*)["']?[^>]*>([\s\S]*?)<\/a>/gi,
         (match, url, videoId, text) => {
-            const id = videoId.trim()
-            // If the text is just the URL or empty, use a generic label
-            const label = (text.includes('youtube.com') || !text.trim()) ? 'YouTube Video' : text.trim()
+            const id = videoId?.trim()
+            if (!id) return match
+            const label = text.replace(/<[^>]*>/g, '').trim() || 'YouTube Video'
             return `<div class="video-embed"><iframe width="560" height="315" src="https://www.youtube.com/embed/${id}" title="${label}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
         }
     )
 
-    // Vimeo: vimeo.com/ID or player.vimeo.com/video/ID
     html = html.replace(
-        /<a\s+[^>]*href=["']?(https?:\/\/(?:(?:www\.)?vimeo\.com|player\.vimeo\.com\/video)\/(\d+)[^"']*)["']?[^>]*>([\s\S]*?)<\/a>/gi,
+        /<a\s+[^>]*href=["']?(https?:\/\/(?:www\.)?vimeo\.com\/(?:video\/)?(\d+)[^"']*)["']?[^>]*>([\s\S]*?)<\/a>/gi,
         (match, url, videoId, text) => {
-            const id = videoId.trim()
-            const label = (text.includes('vimeo.com') || !text.trim()) ? 'Vimeo Video' : text.trim()
+            const id = videoId?.trim()
+            if (!id) return match
+            const label = text.replace(/<[^>]*>/g, '').trim() || 'Vimeo Video'
             return `<div class="video-embed"><iframe width="560" height="315" src="https://player.vimeo.com/video/${id}" title="${label}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
         }
     )
@@ -229,10 +243,12 @@ function transformVideoLinksToIframes(html: string): string {
  */
 function PageModule({ mod }: { mod: HydratedMoodleModule }) {
     // pageDetail is set during hydration
-    let content = mod.pageDetail?.content ?? mod.description ?? ''
+    let content = mod.pageDetail?.content ?? ''
 
     if (!content.trim()) {
-        if (mod.url) {
+        if (mod.pageDetail?.intro?.trim()) {
+            content = mod.pageDetail.intro
+        } else if (mod.url) {
             return (
                 <a
                     href={mod.url}
@@ -249,10 +265,7 @@ function PageModule({ mod }: { mod: HydratedMoodleModule }) {
         return null
     }
 
-    // STEP 1: Transform video links (YouTube/Vimeo/etc) to iframes
-    content = transformVideoLinksToIframes(content)
-
-    // STEP 2: Rewrite pluginfile.php URLs to use our proxy BEFORE passing to SanitizedHTML
+    // STEP 1: Rewrite pluginfile.php URLs to use our proxy BEFORE passing to SanitizedHTML
     content = rewritePluginfileUrls(content)
 
     // STEP 2: Pass to SanitizedHTML which handles sanitization with proper iframe support
@@ -261,7 +274,7 @@ function PageModule({ mod }: { mod: HydratedMoodleModule }) {
     return (
         <div className="rounded-xl border border-violet-500/20 bg-card overflow-hidden shadow-sm">
             {/* Page title header */}
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-border/30 bg-gradient-to-r from-violet-500/10 to-transparent">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-border/30 bg-linear-to-r from-violet-500/10 to-transparent">
                 <BookOpen className="h-5 w-5 text-violet-400 shrink-0" />
                 <h2 className="text-base font-bold text-foreground">{mod.name}</h2>
             </div>

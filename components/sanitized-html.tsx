@@ -25,6 +25,8 @@ export function SanitizedHTML({ html, className, stripImages }: SanitizedHTMLPro
         USE_PROFILES: { html: true },
         FORBID_TAGS: forbidTags,
         FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onmousedown', 'onmouseup', 'onkeydown', 'ontouchstart'],
+        ADD_TAGS: ['iframe'],
+        ADD_ATTR: ['src', 'title', 'allow', 'allowfullscreen', 'frameborder', 'width', 'height', 'style'],
         ALLOWED_TAGS: [
             // Text formatting
             'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'mark', 'small',
@@ -59,7 +61,8 @@ export function SanitizedHTML({ html, className, stripImages }: SanitizedHTMLPro
             // Other
             'target', 'rel', 'download', 'ping', 'usemap',
         ],
-        ALLOW_DATA_ATTR: false,
+        ALLOW_DATA_ATTR: true,
+        ALLOWED_URI_REGEXP: /^(?:(?:https?|ftp):|mailto:|tel:|\/)/i,
         KEEP_CONTENT: true,
         RETURN_DOM: false,
     })

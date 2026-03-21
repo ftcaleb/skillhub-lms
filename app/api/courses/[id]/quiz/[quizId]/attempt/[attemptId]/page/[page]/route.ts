@@ -44,6 +44,7 @@ export async function GET(
 
         // Call Moodle API
         const result = await moodleService.getAttemptData(session.token, attempt_id, page_num)
+        console.log('SERVER RAW QUIZ ATTEMPT DATA PAGE', page_num, JSON.stringify(result, null, 2))
 
         return NextResponse.json(result)
     } catch (error) {

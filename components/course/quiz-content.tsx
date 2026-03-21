@@ -152,7 +152,8 @@ function SubmitModal({
                         Cancel
                     </Button>
                     <Button
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                        className="flex-1"
+                        style={{ background: 'var(--quiz-accent-primary)', color: 'white' }}
                         onClick={onConfirm}
                     >
                         Submit Quiz
@@ -597,12 +598,11 @@ export function QuizContent({
 
                     <button
                         onClick={() => toggleFlag(currentQ.slot)}
-                        className={cn(
-                            'flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg border transition-all mt-auto',
-                            isFlagged
-                                ? 'border-[var(--quiz-accent-warning)] text-[var(--quiz-accent-warning)]'
-                                : 'border-[var(--quiz-border-subtle)] text-[var(--quiz-text-muted)] hover:border-[var(--quiz-accent-warning)] hover:text-[var(--quiz-accent-warning)]',
-                        )}
+                        className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg border transition-all mt-auto"
+                        style={{
+                            borderColor: isFlagged ? 'var(--quiz-accent-warning)' : 'var(--quiz-border-subtle)',
+                            color: isFlagged ? 'var(--quiz-accent-warning)' : 'var(--quiz-text-muted)',
+                        }}
                         aria-label={isFlagged ? 'Unflag question' : 'Flag question'}
                     >
                         <Flag className="h-3.5 w-3.5" />
@@ -638,7 +638,8 @@ export function QuizContent({
                             />
                         ) : (
                             <div
-                                className="prose prose-invert max-w-none text-sm [&_input]:bg-[var(--quiz-bg-card)] [&_input]:border-[var(--quiz-border-subtle)] [&_input]:rounded [&_input]:px-3 [&_input]:py-2 [&_input]:text-[var(--quiz-text-primary)] [&_select]:bg-[var(--quiz-bg-card)] [&_select]:border-[var(--quiz-border-subtle)] [&_select]:rounded [&_select]:px-3 [&_select]:py-2"
+                                className="prose prose-invert max-w-none text-sm"
+                                style={{ color: 'var(--quiz-text-primary)' }}
                                 dangerouslySetInnerHTML={{
                                     __html: DOMPurify.sanitize(currentQ.rawHtml, {
                                         USE_PROFILES: { html: true },
@@ -765,7 +766,8 @@ export function QuizContent({
                         ) : (
                             <Button
                                 onClick={() => setShowSubmitModal(true)}
-                                className="gap-2 bg-red-600 hover:bg-red-700 text-white"
+                                className="gap-2"
+                                style={{ background: 'var(--quiz-accent-primary)', color: 'white' }}
                             >
                                 Finish
                                 <ChevronRight className="h-3.5 w-3.5" />

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import moodleService from '@/lib/moodle/service'
 import { decodeSession, SESSION_COOKIE_NAME } from '@/lib/moodle/session'
+import { applyMoodleContentFilters } from '@/lib/moodle/contentFilter'
 import type {
     HydratedCourse,
     HydratedMoodleModule,
@@ -53,15 +54,20 @@ export async function GET(
         })
 
         // 6. Fetch module details only for module types present in the course (N+1 optimization)
-        let pageDetails: Map<number, MoodlePageDetail> = new Map()
+        let pageDetailsByCourseModule: Map<number, MoodlePageDetail> = new Map()
+        let pageDetailsByInstance: Map<number, MoodlePageDetail> = new Map()
         let quizDetails: Map<number, MoodleQuizDetail> = new Map()
         let resourceDetails: Map<number, MoodleResourceDetail> = new Map()
         let urlDetails: Map<number, MoodleUrlDetail> = new Map()
 
         if (moduleTypes.has('page')) {
             const pages = await moodleService.getPagesByCourseId(session.token, courseId)
+            console.log('RAW PAGE CONTENT SAMPLE', pages[0]?.content?.slice(0, 300))
+            console.log('RAW PAGE INTRO SAMPLE', pages[0]?.intro?.slice(0, 300))
+            console.log('RAW PAGE OBJECT SAMPLE', JSON.stringify(pages[0] ?? {}, null, 2))
             pages.forEach((page) => {
-                pageDetails.set(page.coursemodule, page)
+                pageDetailsByCourseModule.set(page.coursemodule, page)
+                pageDetailsByInstance.set(page.id, page)
             })
         }
 
@@ -94,8 +100,26 @@ export async function GET(
 
                 // Attach the appropriate detail payload based on modname and coursemodule ID
                 if (mod.modname === 'page') {
-                    const detail = pageDetails.get(mod.id)
-                    if (detail) hydrated.pageDetail = detail
+                    const detail = pageDetailsByCourseModule.get(mod.id)
+                        ?? pageDetailsByInstance.get(mod.instance)
+                        ?? pageDetailsByInstance.get(mod.id)
+                    if (detail) {
+                        const filteredContent = applyMoodleContentFilters(
+                            detail.content ?? '',
+                            session.token,
+                            process.env.MOODLE_URL ?? '',
+                        )
+                        const filteredIntro = applyMoodleContentFilters(
+                            detail.intro ?? '',
+                            session.token,
+                            process.env.MOODLE_URL ?? '',
+                        )
+                        hydrated.pageDetail = {
+                            ...detail,
+                            content: filteredContent,
+                            intro: filteredIntro,
+                        }
+                    }
                 }
 
                 if (mod.modname === 'quiz') {
