@@ -582,8 +582,10 @@ export function QuizContent({
 
     if (state.phase === 'start_screen') {
         const hasAttempts = state.attempts.length > 0
-        const canAttempt = state.accessInfo.canattempt
+        const hasAttemptsRemaining = state.maxAttempts === 0 || state.attempts.length < state.maxAttempts
         const preventReasons = state.accessInfo.preventnewattemptreasons
+        // Combine Moodle's logic with our fallback: if Moodle blocks without a reason but we have attempts left, let the button render
+        const canAttempt = state.accessInfo.canattempt || (hasAttemptsRemaining && preventReasons.length === 0)
 
         return (
             <motion.div
@@ -622,10 +624,18 @@ export function QuizContent({
                         </div>
                         <div className="rounded-lg border p-4"
                             style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-elevated)' }}>
-                            <p className="quiz-meta-label">ATTEMPTS ALLOWED</p>
+                            <p className="quiz-meta-label">ATTEMPT LIMIT</p>
                             <p className="text-sm mt-1" style={{ color: 'var(--quiz-text-secondary)' }}>
                                 {state.maxAttempts > 0 ? `${state.maxAttempts} attempt(s)` : 'Unlimited attempts'}
                             </p>
+                            {state.maxAttempts > 0 && (
+                                <>
+                                    <p className="quiz-meta-label mt-3">REMAINING</p>
+                                    <p className="text-sm mt-1" style={{ color: 'var(--quiz-text-secondary)' }}>
+                                        {Math.max(0, state.maxAttempts - state.attempts.length)} attempt(s) left
+                                    </p>
+                                </>
+                            )}
                         </div>
                     </div>
 
