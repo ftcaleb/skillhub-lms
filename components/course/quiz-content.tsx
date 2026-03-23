@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import DOMPurify from 'isomorphic-dompurify'
 import { parseQuizQuestions, type ParsedQuestion } from '@/lib/quiz-question-parser'
-import type { MoodleAttemptQuestion } from '@/lib/moodle/types'
+import type { MoodleAttemptQuestion, MoodleAttemptReviewResponse } from '@/lib/moodle/types'
 
 interface QuizContentProps {
     quizId: number
@@ -60,7 +60,9 @@ type QuizPhase =
         timeStart: number
     }
     | { phase: 'submitting' }
-    | { phase: 'finished'; finalState: string; sumGrades: number | null; maxGrade: number }
+    | { phase: 'finished'; finalState: string; sumGrades: number | null; maxGrade: number; review: MoodleAttemptReviewResponse | null }
+    | { phase: 'review_loading' }
+    | { phase: 'review_screen'; review: MoodleAttemptReviewResponse }
     | { phase: 'error'; message: string }
 
 // ─── Timer Component ──────────────────────────────────────────────────────────
@@ -265,6 +267,12 @@ export function QuizContent({
             if (error) throw new Error(error.error ?? 'Failed to start quiz')
 
             const startData = await startRes.json()
+            
+            if (!startData?.attempt) {
+                console.error("Quiz Start Payload Error:", startData)
+                throw new Error(startData?.message || startData?.error || startData?.exception || 'Failed to start quiz: Invalid response format from server')
+            }
+
             const attemptId = startData.attempt.id
             const timeStart = startData.attempt.timestart
 
@@ -452,12 +460,17 @@ export function QuizContent({
             const totalMarks = state.questions.reduce((sum, q) => sum + q.maxMark, 0)
             const answeredSlots = Object.keys(answers).length
 
-            setState({
-                phase: 'finished',
-                finalState: 'finished',
-                sumGrades: review?.grade ?? answeredSlots, // Use real grade from review
-                maxGrade: totalMarks,
-            })
+            if (review) {
+                setState({ phase: 'review_screen', review })
+            } else {
+                setState({
+                    phase: 'finished',
+                    finalState: 'finished',
+                    sumGrades: answeredSlots,
+                    maxGrade: totalMarks,
+                    review: null
+                })
+            }
         } catch (err) {
             setState({ phase: 'error', message: err instanceof Error ? err.message : 'Unknown error' })
         }
@@ -471,6 +484,21 @@ export function QuizContent({
             else next.add(slot)
             return next
         })
+    }
+
+    // Load attempt review
+    const handleReviewAttempt = async (attemptId: number) => {
+        setState({ phase: 'review_loading' })
+        try {
+            const reviewRes = await fetch(
+                `/api/courses/${courseId}/quiz/${quizId}/attempt/${attemptId}/review`
+            )
+            if (!reviewRes.ok) throw new Error('Failed to load review')
+            const review = await reviewRes.json()
+            setState({ phase: 'review_screen', review })
+        } catch (err) {
+            setState({ phase: 'error', message: err instanceof Error ? err.message : 'Unknown error' })
+        }
     }
 
     // ─── Render: Idle ──────────────────────────────────────────────────────
@@ -618,6 +646,15 @@ export function QuizContent({
                                                 <span className="font-medium" style={{ color: 'var(--quiz-text-primary)' }}>
                                                     Grade: {attempt.grade}
                                                 </span>
+                                            )}
+                                            {attempt.state === 'finished' && (
+                                                <button
+                                                    onClick={() => handleReviewAttempt(attempt.id)}
+                                                    className="font-medium hover:underline text-xs"
+                                                    style={{ color: 'var(--quiz-accent-primary)' }}
+                                                >
+                                                    Review
+                                                </button>
                                             )}
                                         </div>
                                     </div>
@@ -772,6 +809,184 @@ export function QuizContent({
                     Restart
                 </Button>
             </motion.div>
+        )
+    }
+
+    // ─── Render: Review Loading ─────────────────────────────────────────────
+
+    if (state.phase === 'review_loading') {
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center gap-4 py-20"
+            >
+                <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--quiz-accent-primary)' }} />
+                <p className="text-sm" style={{ color: 'var(--quiz-text-secondary)' }}>Loading review...</p>
+            </motion.div>
+        )
+    }
+
+    // ─── Render: Review Screen ──────────────────────────────────────────────
+
+    if (state.phase === 'review_screen') {
+        const review = state.review
+        const formatTime = (seconds: number) => new Date(seconds * 1000).toLocaleString(undefined, {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        })
+        const timeTaken = review.attempt.timefinish && review.attempt.timestart 
+            ? Math.max(0, review.attempt.timefinish - review.attempt.timestart) 
+            : 0
+        const formatDuration = (secs: number) => {
+            if (!secs) return '-'
+            const m = Math.floor(secs / 60)
+            const s = secs % 60
+            return m > 0 ? `${m} mins ${s} secs` : `${s} secs`
+        }
+
+        const processQuestionHTML = (rawHtml: string, qState: string) => {
+            if (typeof window === 'undefined') return DOMPurify.sanitize(rawHtml)
+            
+            try {
+                const cleanHtml = DOMPurify.sanitize(rawHtml)
+                const parser = new DOMParser()
+                const doc = parser.parseFromString(cleanHtml, 'text/html')
+                
+                const inputs = Array.from(doc.querySelectorAll('input[type="radio"], input[type="checkbox"]')) as HTMLInputElement[]
+                const selectedInputs = inputs.filter(i => i.hasAttribute('checked') || i.checked)
+                const correctElements = Array.from(doc.querySelectorAll('.correct, [fraction="1"], [fraction="1.0"], [fraction="1.00"]'))
+                
+                selectedInputs.forEach(input => {
+                    const wrapper = input.closest('.r0, .r1, div')
+                    if (!wrapper) return
+                    
+                    if (qState === 'gradedright') {
+                        wrapper.classList.add('!border-emerald-500', '!bg-emerald-500/10')
+                        input.setAttribute('style', 'accent-color: #10b981;')
+                    } else if (qState === 'gradedwrong' || qState === 'gradedpartial') {
+                        wrapper.classList.add('!border-red-500', '!bg-red-500/10')
+                        input.setAttribute('style', 'accent-color: #ef4444;')
+                    } else {
+                        wrapper.classList.add('!border-blue-500', '!bg-blue-500/10')
+                        input.setAttribute('style', 'accent-color: #3b82f6;')
+                    }
+                    input.setAttribute('checked', 'checked')
+                })
+
+                if (qState === 'gradedwrong' || qState === 'gradedpartial') {
+                    correctElements.forEach(el => {
+                        const wrapper = el.closest('.r0, .r1, div')
+                        if (wrapper && !wrapper.classList.contains('!border-red-500')) {
+                            wrapper.classList.add('!border-emerald-500', '!bg-emerald-500/10')
+                            const input = wrapper.querySelector('input')
+                            if (input) input.setAttribute('style', 'accent-color: #10b981;')
+                        }
+                    })
+                }
+
+                return doc.body.innerHTML
+            } catch (e) {
+                return DOMPurify.sanitize(rawHtml)
+            }
+        }
+
+        return (
+            <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto animate-in fade-in duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold" style={{ color: 'var(--quiz-text-primary)' }}>Review Attempt</h2>
+                    <Button 
+                        variant="outline" 
+                        onClick={() => setState({ phase: 'idle' })}
+                        className="gap-2"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                        Back to Course
+                    </Button>
+                </div>
+
+                {/* Summary Card */}
+                <div className="rounded-xl border p-6" style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-card)' }}>
+                    <div className="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-y-3 text-sm">
+                        <div className="font-medium" style={{ color: 'var(--quiz-text-secondary)' }}>Started on</div>
+                        <div style={{ color: 'var(--quiz-text-primary)' }}>{formatTime(review.attempt.timestart)}</div>
+                        
+                        <div className="font-medium" style={{ color: 'var(--quiz-text-secondary)' }}>State</div>
+                        <div className="font-bold" style={{ color: review.attempt.state === 'finished' ? 'var(--quiz-accent-success)' : 'var(--quiz-text-primary)' }}>
+                            {review.attempt.state === 'finished' ? 'Finished' : review.attempt.state}
+                        </div>
+                        
+                        <div className="font-medium" style={{ color: 'var(--quiz-text-secondary)' }}>Completed on</div>
+                        <div style={{ color: 'var(--quiz-text-primary)' }}>{review.attempt.timefinish ? formatTime(review.attempt.timefinish) : '-'}</div>
+                        
+                        <div className="font-medium" style={{ color: 'var(--quiz-text-secondary)' }}>Time taken</div>
+                        <div style={{ color: 'var(--quiz-text-primary)' }}>{formatDuration(timeTaken)}</div>
+                        
+                        <div className="font-medium" style={{ color: 'var(--quiz-text-secondary)' }}>Marks</div>
+                        <div className="font-bold text-lg" style={{ color: 'var(--quiz-text-primary)' }}>{review.grade || '-'}</div>
+                    </div>
+                </div>
+
+                {/* Questions List */}
+                <div className="flex flex-col gap-8 mt-2">
+                    {review.questions.map((q, idx) => {
+                        const isCorrect = q.state === 'gradedright' || q.status?.toLowerCase() === 'correct'
+                        const isIncorrect = q.state === 'gradedwrong' || q.status?.toLowerCase() === 'incorrect'
+                        const isPartial = q.state === 'gradedpartial' || q.status?.toLowerCase() === 'partially correct' || q.state === 'gradedpartial'
+
+                        return (
+                            <div key={q.slot} className="flex flex-col lg:grid lg:grid-cols-[220px_1fr] gap-0 rounded-xl overflow-hidden border shadow-sm" style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-card)' }}>
+                                {/* Left Panel */}
+                                <div className="p-5 flex flex-col gap-4 border-b lg:border-b-0 lg:border-r" style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-elevated)' }}>
+                                    <div>
+                                        <p className="font-bold text-lg" style={{ color: 'var(--quiz-text-primary)' }}>Question {q.number || idx + 1}</p>
+                                    </div>
+                                    <div>
+                                        <span className="inline-block px-2.5 py-1 text-xs font-semibold rounded-md border" style={{ 
+                                            background: isCorrect ? 'rgba(16, 185, 129, 0.1)' : isIncorrect ? 'rgba(239, 68, 68, 0.1)' : isPartial ? 'rgba(245, 158, 11, 0.1)' : 'rgba(255,255,255,0.05)',
+                                            borderColor: isCorrect ? 'rgba(16, 185, 129, 0.2)' : isIncorrect ? 'rgba(239, 68, 68, 0.2)' : isPartial ? 'rgba(245, 158, 11, 0.2)' : 'var(--quiz-border-subtle)',
+                                            color: isCorrect ? 'var(--quiz-accent-success)' : isIncorrect ? '#ef4444' : isPartial ? '#f59e0b' : 'var(--quiz-text-secondary)'
+                                        }}>
+                                            {q.status || 'Complete'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--quiz-text-muted)' }}>Mark</p>
+                                        <p className="text-sm mt-0.5" style={{ color: 'var(--quiz-text-secondary)' }}>
+                                            {q.mark !== undefined ? `${parseFloat(String(q.mark)).toFixed(2)} out of ${parseFloat(String(q.maxmark)).toFixed(2)}` : '-'}
+                                        </p>
+                                    </div>
+                                    {q.flagged && (
+                                        <div className="mt-auto flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--quiz-accent-warning)' }}>
+                                            <Flag className="h-3.5 w-3.5 fill-current" /> Flagged
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Right Panel */}
+                                <div className="p-6 overflow-x-auto">
+                                    <div 
+                                        className="prose prose-sm prose-invert max-w-none 
+                                            [&_.que]:mb-0 [&_.formulation]:mb-4 [&_.formulation_h4]:hidden 
+                                            [&_.ablock]:mt-4 [&_.ablock_.answer]:flex [&_.ablock_.answer]:flex-col [&_.ablock_.answer]:gap-3
+                                            [&_.answer_.r0]:p-3 [&_.answer_.r0]:rounded-lg [&_.answer_.r0]:border [&_.answer_.r0]:border-white/10 [&_.answer_.r0]:bg-white/5
+                                            [&_.answer_.r1]:p-3 [&_.answer_.r1]:rounded-lg [&_.answer_.r1]:border [&_.answer_.r1]:border-white/10 [&_.answer_.r1]:bg-white/5
+                                            [&_input[type=radio]]:mr-3 [&_input[type=radio]]:scale-110 [&_input[type=checkbox]]:mr-3
+                                            [&_.info]:hidden
+                                            [&_.grade]:hidden
+                                            [&_.state]:hidden
+                                            [&_.rightanswer]:p-4 [&_.rightanswer]:rounded-lg [&_.rightanswer]:bg-emerald-500/10 [&_.rightanswer]:border [&_.rightanswer]:border-emerald-500/20 [&_.rightanswer]:text-emerald-300 [&_.rightanswer]:mt-4
+                                            [&_.specificfeedback]:p-4 [&_.specificfeedback]:rounded-lg [&_.specificfeedback]:bg-white/5 [&_.specificfeedback]:border [&_.specificfeedback]:border-white/10 [&_.specificfeedback]:mt-4
+                                            [&_.generalfeedback]:p-4 [&_.generalfeedback]:rounded-lg [&_.generalfeedback]:bg-white/5 [&_.generalfeedback]:border [&_.generalfeedback]:border-white/10 [&_.generalfeedback]:mt-4
+                                            [&_.correct]:font-medium [&_.correct]:text-emerald-400 [&_.incorrect]:font-medium [&_.incorrect]:text-red-400 [&_i.icon.fa-check]:text-emerald-400 [&_i.icon.fa-remove]:text-red-400"
+                                        dangerouslySetInnerHTML={{ __html: processQuestionHTML(q.html, q.state) }} 
+                                    />
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
         )
     }
 

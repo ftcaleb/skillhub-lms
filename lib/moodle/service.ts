@@ -82,9 +82,9 @@ class MoodleService {
 
         const data = await response.json()
 
-        // Moodle False-Positive: 200 OK but contains an exception in the body
-        if (data && typeof data === 'object' && 'exception' in data) {
-            const msg = data.message ?? data.exception ?? 'Unknown Moodle error'
+        // Moodle False-Positive: 200 OK but contains an error/exception in the body
+        if (data && typeof data === 'object' && ('exception' in data || 'errorcode' in data)) {
+            const msg = data.message ?? data.error ?? data.exception ?? 'Unknown Moodle error'
             const code = data.errorcode ? ` [${data.errorcode}]` : ''
             throw new Error(`Moodle API Error${code}: ${msg}`)
         }
