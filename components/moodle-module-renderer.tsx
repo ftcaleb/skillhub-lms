@@ -526,6 +526,7 @@ function QuizModule({ mod, courseId }: { mod: HydratedMoodleModule; courseId: nu
                         courseId={courseId}
                         timelimit={quiz.timelimit ?? 0}
                         maxAttempts={quiz.attempts ?? 0}
+                        onBack={() => setShowQuiz(false)}
                     />
                 </div>
             </div>

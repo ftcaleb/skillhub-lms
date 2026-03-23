@@ -41,11 +41,7 @@ export async function GET(
         }
 
         // Call Moodle API
-        // TEMP: Return empty attempts array until Moodle API is fixed
-        const result = { attempts: [] }
-        
-        // TODO: Fix Moodle API call
-        // const result = await moodleService.getUserAttempts(session.token, quiz_id, 0)
+        const result = await moodleService.getUserAttempts(session.token, quiz_id, 0)
 
         // Map the response to the expected format
         const attempts = result.attempts.map((a: any) => ({

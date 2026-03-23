@@ -47,6 +47,10 @@ export async function POST(
         // Call Moodle API
         const result = await moodleService.startQuizAttempt(session.token, quiz_id, forcenew)
 
+        console.log("--- MOCK OR MOODLE START DATA RESULT ---")
+        console.log(JSON.stringify(result, null, 2))
+        console.log("----------------------------------------")
+
         return NextResponse.json(result)
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to start quiz attempt.'

@@ -41,18 +41,7 @@ export async function GET(
         }
 
         // Call Moodle API
-        // TEMP: Return hardcoded access info until Moodle API is fixed
-        const result = {
-            accessrules: [],
-            activerulenames: [],
-            preventnewattemptreasons: [],
-            canattempt: true,
-            canpreview: false,
-            canreviewmyattempts: true,
-            isfinished: false,
-        }
-        
-        // const result = await moodleService.getAttemptAccessInformation(session.token, quiz_id, 0)
+        const result = await moodleService.getAttemptAccessInformation(session.token, quiz_id, 0)
 
         return NextResponse.json(result)
     } catch (error) {

@@ -28,6 +28,7 @@ interface QuizContentProps {
     timelimit?: number    // seconds, 0 = unlimited
     maxAttempts?: number  // 0 = unlimited
     gradePass?: number
+    onBack?: () => void
 }
 
 type QuizPhase =
@@ -191,6 +192,7 @@ export function QuizContent({
     timelimit = 0,
     maxAttempts = 0,
     gradePass = 0,
+    onBack,
 }: QuizContentProps) {
     const [state, setState] = useState<QuizPhase>({ phase: 'idle' })
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -268,7 +270,7 @@ export function QuizContent({
 
             const startData = await startRes.json()
             
-            if (!startData?.attempt) {
+            if (!startData?.attempt || typeof startData.attempt.id === 'undefined') {
                 console.error("Quiz Start Payload Error:", startData)
                 throw new Error(startData?.message || startData?.error || startData?.exception || 'Failed to start quiz: Invalid response format from server')
             }
@@ -702,7 +704,7 @@ export function QuizContent({
                         <Button
                             variant="outline"
                             className="flex-1"
-                            onClick={() => setState({ phase: 'idle' })}
+                            onClick={() => (onBack ? onBack() : setState({ phase: 'idle' }))}
                         >
                             Back to Course
                         </Button>
@@ -802,7 +804,7 @@ export function QuizContent({
                 <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setState({ phase: 'idle' })}
+                    onClick={() => (onBack ? onBack() : setState({ phase: 'idle' }))}
                     className="w-fit gap-2"
                 >
                     <RotateCcw className="h-3.5 w-3.5" />
@@ -897,7 +899,7 @@ export function QuizContent({
                     <h2 className="text-2xl font-bold" style={{ color: 'var(--quiz-text-primary)' }}>Review Attempt</h2>
                     <Button 
                         variant="outline" 
-                        onClick={() => setState({ phase: 'idle' })}
+                        onClick={() => (onBack ? onBack() : setState({ phase: 'idle' }))}
                         className="gap-2"
                     >
                         <ChevronLeft className="h-4 w-4" />
