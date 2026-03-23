@@ -204,12 +204,12 @@ export function QuizContent({
             setState({ phase: 'loading_start' })
             try {
                 // Get user attempts
-                const attemptsRes = await fetch(`/api/courses/${courseId}/quiz/${quizId}/attempts`)
+                const attemptsRes = await fetch(`/api/courses/${courseId}/quiz/${quizId}/attempts`, { cache: 'no-store' })
                 if (!attemptsRes.ok) throw new Error('Failed to load attempts')
                 const attemptsData = await attemptsRes.json()
 
                 // Get access information
-                const accessRes = await fetch(`/api/courses/${courseId}/quiz/${quizId}/access`)
+                const accessRes = await fetch(`/api/courses/${courseId}/quiz/${quizId}/access`, { cache: 'no-store' })
                 if (!accessRes.ok) throw new Error('Failed to load access info')
                 const accessData = await accessRes.json()
 
