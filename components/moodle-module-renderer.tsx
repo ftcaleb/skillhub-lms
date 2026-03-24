@@ -255,8 +255,17 @@ function rewritePluginfileUrls(html: string): string {
             for (const attr of urlAttrs) {
                 const value = el.getAttribute(attr)
                 if (!value) continue
+                
+                // If it's already using our proxy, skip
+                if (value.startsWith('/api/courses/file?url=')) continue
+                
                 if (value.includes('pluginfile.php')) {
-                    if (value.startsWith('/api/courses/file?url=')) continue
+                    // Safety check to ensure we don't double encode
+                    try {
+                        const decodedValue = decodeURIComponent(value)
+                        if (decodedValue.includes('/api/courses/file?url=')) continue
+                    } catch (e) { /* ignore */ }
+                    
                     el.setAttribute(attr, `/api/courses/file?url=${encodeURIComponent(value)}`)
                 }
             }

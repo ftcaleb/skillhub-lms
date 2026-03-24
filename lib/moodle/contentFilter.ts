@@ -10,14 +10,16 @@ export function applyMoodleContentFilters(
 
   let processed = html
 
-  // 1) Rewrite pluginfile URLs to webservice/pluginfile.php and append token.
+  // 1) Rewrite pluginfile URLs to our proxy.
+  // This avoids double-prefixing /webservice/ and stops exposing the WS token in HTML.
   processed = processed.replace(
     /(src|href|poster|data)=(["'])(https?:\/\/(?:[^"']*?)pluginfile\.php(?:[^"']*?))(\2)/gi,
     (_, attr, quote, url) => {
-      const wsUrl = url.replace('/pluginfile.php', '/webservice/pluginfile.php')
-      const separator = wsUrl.includes('?') ? '&' : '?'
-      const tokenUrl = `${wsUrl}${separator}token=${encodeURIComponent(token)}`
-      return `${attr}=${quote}${tokenUrl}${quote}`
+      // If it's already proxied, skip
+      if (url.includes('/api/courses/file?url=')) return `${attr}=${quote}${url}${quote}`
+      
+      const proxyUrl = `/api/courses/file?url=${encodeURIComponent(url)}`
+      return `${attr}=${quote}${proxyUrl}${quote}`
     },
   )
 
