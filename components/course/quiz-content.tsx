@@ -135,7 +135,7 @@ function SubmitModal({
 }) {
     if (!open) return null
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-2xl">
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -1016,7 +1016,7 @@ export function QuizContent({
     const isAnswered = selectedValue !== undefined
 
     return (
-        <>
+        <div className="relative">
             <SubmitModal
                 open={showSubmitModal}
                 onClose={() => setShowSubmitModal(false)}
@@ -1321,6 +1321,6 @@ export function QuizContent({
                     </div>
                 </div>
             </div>
-        </>
+        </div>
     )
 }

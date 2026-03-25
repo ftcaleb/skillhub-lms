@@ -13,6 +13,7 @@ import {
   X,
   AlertCircle,
   Loader2,
+  LogOut,
 } from 'lucide-react'
 import { MilestoneTimeline } from '@/components/milestone-timeline'
 import { Button } from '@/components/ui/button'
@@ -43,6 +44,16 @@ export function ProfileView() {
   const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<EditableFields>({ fullname: '' })
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  async function handleLogout() {
+    setLoggingOut(true)
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } finally {
+      router.push('/login')
+    }
+  }
 
   useEffect(() => {
     async function fetchProfile() {
@@ -317,6 +328,41 @@ export function ProfileView() {
             { title: 'First course completed', date: 'Pending completion', completed: false },
           ]}
         />
+      </motion.section>
+
+      {/* Account Actions */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.4 }}
+        className="rounded-xl p-6 mb-8"
+        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+      >
+        <h2
+          className="text-sm font-semibold mb-5"
+          style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+        >
+          Account Actions
+        </h2>
+        <div className="flex flex-col gap-4">
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Signing out will end your current session on this device.
+          </p>
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 px-4 py-6 rounded-lg text-sidebar-foreground transition-all hover:bg-destructive/10 hover:text-destructive group"
+            onClick={handleLogout}
+            disabled={loggingOut}
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-destructive/10 group-hover:bg-destructive/20 transition-colors">
+              <LogOut className="h-5 w-5 text-destructive" />
+            </div>
+            <div className="flex flex-col items-start transition-opacity">
+              <span className="text-sm font-semibold">{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
+              <span className="text-[10px] opacity-70">End your current session</span>
+            </div>
+          </Button>
+        </div>
       </motion.section>
     </div>
   )
