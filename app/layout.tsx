@@ -1,12 +1,21 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
+import { DM_Sans, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
-const _inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const _geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-dm-sans',
+  display: 'swap',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
-  title: 'Nexus Supply Chain | Professional LMS',
+  title: 'SkillHub | Professional LMS',
   description: 'Accelerate your supply chain career with industry-leading courses in Logistics, Procurement, Lean Six Sigma, and more.',
   generator: 'v0.app',
   icons: {
@@ -29,7 +38,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0F172A',
+  themeColor: '#060d18',
   width: 'device-width',
   initialScale: 1,
 }
@@ -41,7 +50,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${_inter.variable} ${_geistMono.variable} font-sans antialiased`}>
+      <body className={`${dmSans.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>

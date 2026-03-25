@@ -22,15 +22,15 @@ interface DashboardProps {
 
 function CourseSkeleton() {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden animate-pulse">
-      <div className="aspect-[16/9] bg-secondary" />
-      <div className="p-4 flex flex-col gap-3">
-        <div className="h-4 bg-secondary rounded w-3/4" />
-        <div className="h-3 bg-secondary rounded w-1/2" />
-        <div className="h-3 bg-secondary rounded w-1/3" />
-        <div className="pt-2 border-t border-border flex items-center justify-between">
-          <div className="h-10 w-10 rounded-full bg-secondary" />
-          <div className="h-7 w-20 rounded-lg bg-secondary" />
+    <div className="rounded-2xl overflow-hidden animate-pulse" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+      <div className="aspect-[16/9]" style={{ background: 'var(--bg-elevated)' }} />
+      <div className="p-5 flex flex-col gap-3">
+        <div className="h-4 rounded w-3/4 skeleton" />
+        <div className="h-3 rounded w-1/2 skeleton" />
+        <div className="h-3 rounded w-1/3 skeleton" />
+        <div className="pt-3 mt-1 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <div className="h-10 w-10 rounded-full skeleton" />
+          <div className="h-7 w-20 rounded-lg skeleton" />
         </div>
       </div>
     </div>
@@ -81,8 +81,8 @@ export function Dashboard({ onOpenCourse }: DashboardProps) {
   if (loading) {
     return (
       <div className="flex flex-col gap-8">
-        <div className="h-8 w-40 bg-secondary rounded animate-pulse" />
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="h-8 w-40 rounded skeleton" />
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => <CourseSkeleton key={i} />)}
         </div>
       </div>
@@ -115,8 +115,25 @@ export function Dashboard({ onOpenCourse }: DashboardProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">My Courses</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1
+          style={{
+            fontFamily: "'Sora', sans-serif",
+            fontSize: '3rem',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.1,
+          }}
+        >
+          My Courses
+        </h1>
+        <p
+          className="mt-2 text-sm"
+          style={{
+            fontFamily: "'DM Sans', sans-serif",
+            color: 'var(--text-secondary)',
+          }}
+        >
           {inProgressCount} in progress · {completedCount} completed · {courses.length} total
         </p>
       </motion.div>
@@ -128,29 +145,29 @@ export function Dashboard({ onOpenCourse }: DashboardProps) {
         transition={{ duration: 0.4, delay: 0.1 }}
         className="flex items-center gap-2"
       >
-        <Filter className="h-4 w-4 text-muted-foreground" />
+        <Filter className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
         <div className="flex items-center gap-1.5" role="tablist" aria-label="Filter courses">
-          {filters.map((filter) => (
-            <button
-              key={filter.value}
-              role="tab"
-              aria-selected={activeFilter === filter.value}
-              onClick={() => setActiveFilter(filter.value)}
-              className={`relative rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${activeFilter === filter.value
-                  ? 'text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-                }`}
-            >
-              {activeFilter === filter.value && (
-                <motion.div
-                  layoutId="filter-active"
-                  className="absolute inset-0 rounded-lg bg-primary"
-                  transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
-                />
-              )}
-              <span className="relative z-10">{filter.label}</span>
-            </button>
-          ))}
+          {filters.map((filter) => {
+            const isActive = activeFilter === filter.value
+            return (
+              <button
+                key={filter.value}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveFilter(filter.value)}
+                className="relative rounded-lg px-4 py-2 text-xs font-medium transition-all duration-200"
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  color: isActive ? 'var(--glow-primary)' : 'var(--text-muted)',
+                  background: isActive ? 'var(--bg-elevated)' : 'transparent',
+                  border: isActive ? '1px solid var(--border-glow)' : '1px solid transparent',
+                  boxShadow: isActive ? 'var(--shadow-glow-sm)' : 'none',
+                }}
+              >
+                <span className="relative z-10">{filter.label}</span>
+              </button>
+            )
+          })}
         </div>
       </motion.div>
 
@@ -171,7 +188,7 @@ export function Dashboard({ onOpenCourse }: DashboardProps) {
         </motion.div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {filteredCourses.map((course, index) => (
               <MoodleCourseCard
                 key={course.id}

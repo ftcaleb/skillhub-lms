@@ -1,10 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── SkillHub Design System ──────────────────────────────────────────────── */
 :root {
-  /* Deep Navy Industrial Tech theme */
+  /* ── Backgrounds — layered depth ─────────────────── */
+  --bg-void:        #020408;
+  --bg-base:        #060d18;
+  --bg-surface:     #0a1628;
+  --bg-elevated:    #0f1f35;
+  --bg-overlay:     #162540;
+
+  /* ── Ambient glow colors ─────────────────────────── */
+  --glow-primary:   #0ea5e9;
+  --glow-accent:    #f97316;
+  --glow-purple:    #8b5cf6;
+  --glow-green:     #10b981;
+
+  /* ── Text ────────────────────────────────────────── */
+  --text-primary:   #f0f6ff;
+  --text-secondary: #7ea8d0;
+  --text-muted:     #3d6080;
+
+  /* ── Borders ─────────────────────────────────────── */
+  --border-subtle:  rgba(14, 165, 233, 0.08);
+  --border-glow:    rgba(14, 165, 233, 0.25);
+  --border-active:  rgba(14, 165, 233, 0.6);
+
+  /* ── Shadows & glows ─────────────────────────────── */
+  --shadow-card:    0 0 0 1px var(--border-subtle), 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-glow-sm: 0 0 20px rgba(14, 165, 233, 0.15);
+  --shadow-glow-md: 0 0 40px rgba(14, 165, 233, 0.2);
+  --shadow-glow-lg: 0 0 80px rgba(14, 165, 233, 0.15);
+  --glow-orange:    0 0 30px rgba(249, 115, 22, 0.3);
+
+  /* ── shadcn/ui tokens (preserved for component compat) ── */
   --background: oklch(0.145 0.02 255);
   --foreground: oklch(0.95 0.01 250);
   --card: oklch(0.18 0.02 255);
@@ -38,11 +71,23 @@
   --sidebar-accent-foreground: oklch(0.9 0.01 250);
   --sidebar-border: oklch(0.22 0.02 255);
   --sidebar-ring: oklch(0.75 0.16 65);
+
+  /* ── Quiz tokens (remapped to new palette) ───────── */
+  --quiz-bg-primary: var(--bg-base);
+  --quiz-bg-card: var(--bg-surface);
+  --quiz-bg-elevated: var(--bg-elevated);
+  --quiz-accent-primary: var(--glow-primary);
+  --quiz-accent-success: var(--glow-green);
+  --quiz-accent-warning: var(--glow-accent);
+  --quiz-text-primary: var(--text-primary);
+  --quiz-text-secondary: var(--text-secondary);
+  --quiz-text-muted: var(--text-muted);
+  --quiz-border-subtle: var(--border-subtle);
 }
 
 @theme inline {
-  --font-sans: 'Inter', 'Geist', sans-serif;
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: 'DM Sans', 'Inter', 'Geist', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Geist Mono', 'Geist Mono Fallback';
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -90,51 +135,99 @@
   }
 }
 
-/* Custom scrollbar for the dark theme */
+/* ── Global body styling ─────────────────────────────────────────────────── */
+body {
+  background-color: var(--bg-base);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(14, 165, 233, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(249, 115, 22, 0.03) 0%, transparent 70%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text-primary);
+}
+
+/* Subtle noise texture overlay for depth */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ── Smooth scrolling ────────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Selection color ─────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(14, 165, 233, 0.3);
+  color: var(--text-primary);
+}
+
+/* ── Focus ring — accessibility ──────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--glow-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ambientPulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* Apply fade-in to main content areas */
+main > * {
+  animation: fadeInUp 0.4s ease both;
+}
+main > *:nth-child(1) { animation-delay: 0.05s; }
+main > *:nth-child(2) { animation-delay: 0.1s; }
+main > *:nth-child(3) { animation-delay: 0.15s; }
+main > *:nth-child(4) { animation-delay: 0.2s; }
+
+/* ── Skeleton loader ─────────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface) 25%,
+    var(--bg-elevated) 50%,
+    var(--bg-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* ── Custom scrollbar for the dark theme ──────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: oklch(0.12 0.02 255);
+  background: var(--bg-base);
 }
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.3 0.02 255);
+  background: var(--bg-overlay);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.4 0.02 255);
-}
-
-/* ── Quiz-specific design tokens ──────────────────────────────────────── */
-:root {
-  --quiz-bg-primary: #0a0f1e;
-  --quiz-bg-card: #111827;
-  --quiz-bg-elevated: #1a2235;
-  --quiz-accent-primary: #2563eb;
-  --quiz-accent-success: #10b981;
-  --quiz-accent-warning: #f59e0b;
-  --quiz-text-primary: #f1f5f9;
-  --quiz-text-secondary: #94a3b8;
-  --quiz-text-muted: #4b5563;
-  --quiz-border-subtle: rgba(255, 255, 255, 0.06);
-}
-
-/* ── Shimmer skeleton loader ──────────────────────────────────────────── */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--quiz-bg-card) 25%,
-    var(--quiz-bg-elevated) 50%,
-    var(--quiz-bg-card) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 6px;
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  background: var(--text-muted);
 }
 
 /* ── Video embed aspect-ratio container ───────────────────────────────── */
@@ -151,7 +244,7 @@
   width: 100%;
   height: 100%;
   border: 0;
-  border-radius: 8px;
+  border-radius: 12px;
 }
 
 /* Ensure Moodle iframe embeds render at full width and height in lesson content */
@@ -163,7 +256,7 @@
   max-width: 100%;
   height: 400px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 12px;
   display: block;
   margin: 16px 0;
 }
@@ -172,76 +265,86 @@
 .quiz-option {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  border-radius: 10px;
-  border: 1px solid var(--quiz-border-subtle);
-  background: var(--quiz-bg-card);
+  gap: 14px;
+  padding: 15px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
   cursor: pointer;
   transition: all 0.15s ease;
   width: 100%;
   text-align: left;
-  color: var(--quiz-text-primary);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
   font-size: 0.9375rem;
-  font-weight: 400;
+  margin-bottom: 10px;
 }
 .quiz-option:hover {
-  border-color: var(--quiz-accent-primary);
-  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(14, 165, 233, 0.4);
+  background: rgba(14, 165, 233, 0.05);
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.1);
 }
 .quiz-option.selected {
-  border-color: var(--quiz-accent-primary);
-  background: rgba(37, 99, 235, 0.15);
+  border-color: var(--glow-primary);
+  background: rgba(14, 165, 233, 0.1);
+  box-shadow: var(--shadow-glow-sm);
 }
 .quiz-option .option-letter {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
   border-radius: 50%;
-  border: 2px solid currentColor;
+  border: 2px solid rgba(255,255,255,0.15);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
   flex-shrink: 0;
-  font-size: 0.875rem;
+  transition: all 0.15s ease;
 }
 .quiz-option.selected .option-letter {
-  background: var(--quiz-accent-primary);
-  border-color: var(--quiz-accent-primary);
-  color: white;
+  border-color: var(--glow-primary);
+  color: var(--glow-primary);
+  background: rgba(14, 165, 233, 0.15);
 }
 
 /* ── Quiz question navigator grid ─────────────────────────────────────── */
 .quiz-nav-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.8125rem;
-  font-weight: 600;
-  border: 1px solid var(--quiz-border-subtle);
-  background: var(--quiz-bg-card);
-  color: var(--quiz-text-secondary);
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .quiz-nav-btn:hover {
-  border-color: var(--quiz-accent-primary);
+  border-color: var(--border-glow);
 }
 .quiz-nav-btn.current {
-  background: var(--quiz-accent-primary);
-  border-color: var(--quiz-accent-primary);
+  background: var(--glow-primary);
+  border-color: var(--glow-primary);
   color: white;
+  box-shadow: var(--shadow-glow-sm);
 }
 .quiz-nav-btn.answered {
-  border-color: var(--quiz-accent-primary);
-  color: var(--quiz-accent-primary);
+  border-color: rgba(14, 165, 233, 0.5);
+  color: var(--glow-primary);
+  background: rgba(14, 165, 233, 0.08);
 }
 .quiz-nav-btn.flagged {
-  border-color: var(--quiz-accent-warning);
-  color: var(--quiz-accent-warning);
+  border-color: rgba(249, 115, 22, 0.5);
+  color: var(--glow-accent);
+  background: rgba(249, 115, 22, 0.08);
 }
 
 /* ── Moodle HTML dark-themed table styles ─────────────────────────────── */
@@ -252,18 +355,18 @@
 }
 .moodle-content th,
 .moodle-content td {
-  border: 1px solid var(--quiz-border-subtle);
+  border: 1px solid var(--border-subtle);
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
 }
 .moodle-content th {
-  background: var(--quiz-bg-elevated);
+  background: var(--bg-elevated);
   font-weight: 600;
   text-align: left;
-  color: var(--quiz-text-primary);
+  color: var(--text-primary);
 }
 .moodle-content td {
-  color: var(--quiz-text-secondary);
+  color: var(--text-secondary);
 }
 .moodle-content tr:nth-child(even) td {
   background: rgba(255, 255, 255, 0.02);
@@ -275,7 +378,8 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--quiz-text-muted);
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
 }
 
 /* ── Quiz timer pulse (low time) ──────────────────────────────────────── */
@@ -286,4 +390,185 @@
 .timer-warning {
   animation: timer-pulse 1s ease-in-out infinite;
   color: #ef4444;
+}
+
+/* ── Lesson content wrapper ──────────────────────────────────────────── */
+.lesson-content-wrapper {
+  background: var(--bg-surface);
+  border: none;
+  border-radius: 0;
+  padding: 40px 48px;
+  width: 100%;
+}
+
+.lesson-content-wrapper h1,
+.lesson-content-wrapper h2,
+.lesson-content-wrapper h3 {
+  font-family: 'Sora', sans-serif;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.lesson-content-wrapper h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding-left: 16px;
+  border-left: 3px solid var(--glow-primary);
+  margin-left: -16px;
+}
+
+.lesson-content-wrapper p {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+
+.lesson-content-wrapper ul li {
+  color: var(--text-secondary);
+  line-height: 1.8;
+  padding-left: 8px;
+}
+
+.lesson-content-wrapper ul li::marker {
+  color: var(--glow-primary);
+}
+
+.lesson-content-wrapper iframe {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-glow-sm);
+  margin: 24px 0;
+}
+
+/* ── Course section styles ───────────────────────────────────────────── */
+.course-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+}
+.course-section-header:hover {
+  border-color: var(--border-glow);
+  background: var(--bg-elevated);
+}
+.course-section-title {
+  font-family: 'Sora', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+/* ── Module item ─────────────────────────────────────────────────────── */
+.course-module-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.course-module-item:hover {
+  border-color: var(--border-glow);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-glow-sm);
+  transform: translateX(2px);
+}
+
+/* Module icon variants */
+.module-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.module-icon.page    { background: rgba(14, 165, 233, 0.12); color: var(--glow-primary); }
+.module-icon.quiz    { background: rgba(249, 115, 22, 0.12);  color: var(--glow-accent); }
+.module-icon.video   { background: rgba(139, 92, 246, 0.12);  color: var(--glow-purple); }
+.module-icon.done    { background: rgba(16, 185, 129, 0.12);  color: var(--glow-green); }
+
+/* ── Mark Complete button ────────────────────────────────────────────── */
+.mark-complete-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-family: 'DM Sans';
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.mark-complete-btn:hover {
+  border-color: var(--glow-green);
+  color: var(--glow-green);
+  background: rgba(16, 185, 129, 0.08);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+}
+.mark-complete-btn.completed {
+  border-color: var(--glow-green);
+  color: var(--glow-green);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+/* ── Submit quiz button ──────────────────────────────────────────────── */
+.submit-quiz-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--glow-primary), #0284c7);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-family: 'Sora', sans-serif;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-glow-sm);
+}
+.submit-quiz-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-glow-md);
+}
+
+/* ── Profile styles ──────────────────────────────────────────────────── */
+.profile-hero-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+.profile-hero-card::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  left: -40px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.12) 0%, transparent 70%);
+  pointer-events: none;
 }

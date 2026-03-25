@@ -79,20 +79,20 @@ export function ProfileView() {
   if (loading) {
     return (
       <div className="flex flex-col gap-8 max-w-2xl">
-        <div className="rounded-2xl border border-border/50 p-8 animate-pulse">
+        <div className="rounded-2xl p-8 animate-pulse" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-5">
-            <div className="h-20 w-20 rounded-full bg-secondary shrink-0" />
+            <div className="h-20 w-20 rounded-full skeleton shrink-0" />
             <div className="flex-1 flex flex-col gap-2">
-              <div className="h-5 w-40 bg-secondary rounded" />
-              <div className="h-3 w-24 bg-secondary rounded" />
-              <div className="h-3 w-32 bg-secondary rounded" />
+              <div className="h-5 w-40 rounded skeleton" />
+              <div className="h-3 w-24 rounded skeleton" />
+              <div className="h-3 w-32 rounded skeleton" />
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-6 animate-pulse">
-          <div className="h-4 w-28 bg-secondary rounded mb-5" />
+        <div className="rounded-xl p-6 animate-pulse" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+          <div className="h-4 w-28 rounded skeleton mb-5" />
           <div className="flex flex-col gap-4">
-            {[1, 2, 3].map((i) => <div key={i} className="h-6 bg-secondary rounded" />)}
+            {[1, 2, 3].map((i) => <div key={i} className="h-6 rounded skeleton" />)}
           </div>
         </div>
       </div>
@@ -122,17 +122,12 @@ export function ProfileView() {
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative overflow-hidden rounded-2xl border border-border/50 p-6 sm:p-8"
-        style={{
-          background:
-            'linear-gradient(135deg, rgba(245,158,11,0.06) 0%, rgba(15,23,42,0.4) 50%, rgba(100,116,139,0.08) 100%)',
-          backdropFilter: 'blur(20px)',
-        }}
+        className="profile-hero-card relative overflow-hidden rounded-2xl p-6 sm:p-8"
       >
         {/* Decorative glow */}
         <div
           className="absolute -top-20 -right-20 h-40 w-40 rounded-full opacity-20"
-          style={{ background: 'radial-gradient(circle, oklch(0.75 0.16 65), transparent)' }}
+          style={{ background: 'radial-gradient(circle, var(--glow-primary), transparent)' }}
         />
 
         <div className="relative flex flex-col items-center gap-5 sm:flex-row sm:items-start">
@@ -143,11 +138,25 @@ export function ProfileView() {
               <img
                 src={profile.userpictureurl}
                 alt={profile.fullname}
-                className="h-20 w-20 rounded-full border-2 border-primary/30 object-cover bg-secondary"
+                className="h-20 w-20 rounded-full object-cover"
+                style={{
+                  border: '3px solid var(--border-glow)',
+                  background: 'var(--bg-elevated)',
+                  boxShadow: 'var(--shadow-glow-sm)',
+                }}
                 onError={(e) => { e.currentTarget.style.display = 'none' }}
               />
             ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary/30 bg-secondary text-xl font-bold text-foreground">
+              <div
+                className="flex h-20 w-20 items-center justify-center rounded-full text-xl font-bold"
+                style={{
+                  border: '3px solid var(--border-glow)',
+                  background: 'var(--bg-elevated)',
+                  color: 'var(--text-primary)',
+                  boxShadow: 'var(--shadow-glow-sm)',
+                  fontFamily: "'Sora', sans-serif",
+                }}
+              >
                 {initials}
               </div>
             )}
@@ -161,11 +170,19 @@ export function ProfileView() {
 
           {/* Info */}
           <div className="flex-1 text-center sm:text-left">
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
+            <h1
+              className="text-xl font-bold tracking-tight"
+              style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+            >
               {isEditing ? editData.fullname || profile.fullname : profile.fullname}
             </h1>
-            <p className="mt-0.5 text-sm text-primary font-medium">@{profile.username}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{profile.sitename}</p>
+            <p
+              className="mt-0.5 text-sm font-medium"
+              style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--glow-accent)' }}
+            >
+              @{profile.username}
+            </p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>{profile.sitename}</p>
           </div>
 
           {/* Edit toggle */}
@@ -208,9 +225,15 @@ export function ProfileView() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
-        className="rounded-xl border border-border bg-card p-6"
+        className="rounded-xl p-6"
+        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
       >
-        <h2 className="text-sm font-semibold text-card-foreground mb-5">Account Details</h2>
+        <h2
+          className="text-sm font-semibold mb-5"
+          style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+        >
+          Account Details
+        </h2>
         <div className="grid gap-5">
           <FieldRow
             icon={User}
@@ -247,16 +270,28 @@ export function ProfileView() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.2 }}
-        className="rounded-xl border border-border bg-card p-6"
+        className="rounded-xl p-6"
+        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
       >
-        <h2 className="text-sm font-semibold text-card-foreground mb-3">Moodle Identity</h2>
-        <div className="flex items-center gap-3 rounded-lg bg-secondary/50 px-4 py-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-            <span className="text-xs font-bold text-primary">#</span>
+        <h2
+          className="text-sm font-semibold mb-3"
+          style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+        >
+          Moodle Identity
+        </h2>
+        <div
+          className="flex items-center gap-3 rounded-lg px-4 py-3"
+          style={{ background: 'var(--bg-elevated)' }}
+        >
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-lg"
+            style={{ background: 'rgba(14, 165, 233, 0.1)' }}
+          >
+            <span className="text-xs font-bold" style={{ color: 'var(--glow-primary)', fontFamily: "'JetBrains Mono', monospace" }}>#</span>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">User ID</p>
-            <p className="text-sm font-mono font-medium text-card-foreground">{profile.userid}</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>User ID</p>
+            <p className="text-sm font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{profile.userid}</p>
           </div>
         </div>
       </motion.section>
@@ -266,9 +301,15 @@ export function ProfileView() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
-        className="rounded-xl border border-border bg-card p-6"
+        className="rounded-xl p-6"
+        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
       >
-        <h2 className="text-sm font-semibold text-card-foreground mb-5">Career Milestones</h2>
+        <h2
+          className="text-sm font-semibold mb-5"
+          style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+        >
+          Career Milestones
+        </h2>
         <MilestoneTimeline
           milestones={[
             { title: 'Joined the platform', date: 'Account created', completed: true },

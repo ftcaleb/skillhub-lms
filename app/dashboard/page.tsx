@@ -2,27 +2,28 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AppSidebar } from '@/components/app-sidebar'
 import { Dashboard } from '@/components/dashboard'
 import { CertificationsView } from '@/components/certifications-view'
 import { ProfileView } from '@/components/profile-view'
 import { CourseDetailView } from '@/components/course-detail-view'
-import { Bell, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Bell, Search, Menu, X, LogOut } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import type { MoodleCourse } from '@/lib/moodle/types'
 
 type ActiveView = 'dashboard' | 'certifications' | 'profile' | 'course-detail'
 
-const viewTitles: Record<string, string> = {
-    dashboard: 'Dashboard',
-    certifications: 'Certifications',
-    profile: 'Profile',
-    'course-detail': 'Course',
-}
+const navLinks = [
+    { id: 'dashboard' as const, label: 'My Courses' },
+    { id: 'certifications' as const, label: 'Certifications' },
+    { id: 'profile' as const, label: 'Profile' },
+]
 
 export default function DashboardPage() {
+    const router = useRouter()
     const [activeView, setActiveView] = useState<ActiveView>('dashboard')
     const [selectedCourse, setSelectedCourse] = useState<MoodleCourse | null>(null)
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+    const [loggingOut, setLoggingOut] = useState(false)
 
     const handleOpenCourse = (course: MoodleCourse) => {
         setSelectedCourse(course)
@@ -37,64 +38,212 @@ export default function DashboardPage() {
     const handleNavigate = (view: 'dashboard' | 'certifications' | 'profile') => {
         setActiveView(view)
         setSelectedCourse(null)
+        setMobileMenuOpen(false)
     }
 
-    const pageTitle =
-        activeView === 'course-detail' && selectedCourse
-            ? selectedCourse.displayname || selectedCourse.fullname
-            : viewTitles[activeView]
+    async function handleLogout() {
+        setLoggingOut(true)
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' })
+        } finally {
+            router.push('/login')
+        }
+    }
+
+    const currentNavId = activeView === 'course-detail' ? 'dashboard' : activeView
 
     return (
-        <div className="flex min-h-dvh bg-background">
-            <AppSidebar
-                activeView={activeView === 'course-detail' ? 'dashboard' : activeView}
-                onNavigate={handleNavigate}
-            />
-
-            {/* Main content area */}
-            <main className="flex-1 md:ml-[240px] transition-[margin] duration-200">
-                {/* Top bar */}
-                <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 sm:px-8 backdrop-blur-md">
-                    {/* Left spacer for mobile menu button */}
-                    <div className="w-10 md:hidden" />
-
-                    <div className="hidden md:block">
-                        <h2 className="text-sm font-medium text-foreground">{pageTitle}</h2>
+        <div className="flex flex-col min-h-dvh" style={{ background: 'var(--bg-base)' }}>
+            {/* ── Premium Floating Navbar ─────────────────────────────────── */}
+            <header
+                className="sticky top-0 z-50 w-full"
+                style={{
+                    background: 'rgba(6, 13, 24, 0.85)',
+                    backdropFilter: 'blur(20px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    boxShadow: '0 1px 0 var(--border-subtle), var(--shadow-glow-sm)',
+                }}
+            >
+                <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8 max-w-[1440px] mx-auto w-full">
+                    {/* LEFT: Logo + Wordmark */}
+                    <div className="flex items-center gap-3">
+                        <img
+                            src="/images/Logo.png"
+                            alt="SkillHub logo"
+                            className="h-10 w-10 object-contain"
+                        />
+                        <span
+                            className="hidden sm:block text-lg font-bold tracking-tight"
+                            style={{
+                                fontFamily: "'Sora', sans-serif",
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                            }}
+                        >
+                            SkillHub
+                        </span>
                     </div>
 
+                    {/* CENTER: Navigation Links (desktop) */}
+                    <nav className="hidden md:flex items-center gap-1" role="navigation" aria-label="Main navigation">
+                        {navLinks.map((link) => {
+                            const isActive = currentNavId === link.id
+                            return (
+                                <button
+                                    key={link.id}
+                                    onClick={() => handleNavigate(link.id)}
+                                    className="relative px-4 py-2 rounded-lg transition-colors duration-200"
+                                    style={{
+                                        fontFamily: "'DM Sans', sans-serif",
+                                        fontSize: '0.9rem',
+                                        fontWeight: 500,
+                                        letterSpacing: '0.01em',
+                                        color: isActive ? 'var(--glow-primary)' : 'var(--text-secondary)',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!isActive) e.currentTarget.style.color = 'var(--text-primary)'
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!isActive) e.currentTarget.style.color = 'var(--text-secondary)'
+                                    }}
+                                    aria-current={isActive ? 'page' : undefined}
+                                >
+                                    {link.label}
+                                    {isActive && (
+                                        <motion.div
+                                            layoutId="nav-active-indicator"
+                                            className="absolute bottom-0 left-2 right-2 h-[2px]"
+                                            style={{
+                                                background: 'var(--glow-primary)',
+                                                boxShadow: '0 0 8px rgba(14, 165, 233, 0.5)',
+                                            }}
+                                            transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
+                                        />
+                                    )}
+                                </button>
+                            )
+                        })}
+                    </nav>
+
+                    {/* RIGHT: Search, Bell, Avatar */}
                     <div className="flex items-center gap-2">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        <button
+                            className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
+                            style={{ color: 'var(--text-muted)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-overlay)' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
                             aria-label="Search"
                         >
                             <Search className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="relative text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        </button>
+                        <button
+                            className="relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
+                            style={{ color: 'var(--text-muted)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-overlay)' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
                             aria-label="Notifications"
                         >
                             <Bell className="h-4 w-4" />
-                            <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-primary" />
-                        </Button>
-                        <div
-                            className="ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground cursor-pointer"
-                            role="button"
-                            tabIndex={0}
-                            aria-label="User profile"
-                            onClick={() => handleNavigate('profile')}
-                            onKeyDown={(e) => e.key === 'Enter' && handleNavigate('profile')}
-                        >
-                            NS
-                        </div>
-                    </div>
-                </header>
+                            <span
+                                className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full"
+                                style={{ background: 'var(--glow-accent)' }}
+                            />
+                        </button>
 
-                {/* Page content */}
-                <div className="p-4 sm:p-8">
+                        {/* Avatar */}
+                        <button
+                            className="ml-2 flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition-all duration-200"
+                            style={{
+                                border: '2px solid var(--border-glow)',
+                                background: 'var(--bg-elevated)',
+                                color: 'var(--text-primary)',
+                                fontFamily: "'JetBrains Mono', monospace",
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--glow-primary)'
+                                e.currentTarget.style.boxShadow = 'var(--shadow-glow-sm)'
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--border-glow)'
+                                e.currentTarget.style.boxShadow = 'none'
+                            }}
+                            onClick={() => handleNavigate('profile')}
+                            aria-label="User profile"
+                        >
+                            SH
+                        </button>
+
+                        {/* Mobile hamburger */}
+                        <button
+                            className="flex md:hidden h-9 w-9 items-center justify-center rounded-lg ml-1"
+                            style={{ color: 'var(--text-secondary)' }}
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                        >
+                            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Mobile slide-down drawer */}
+                <AnimatePresence>
+                    {mobileMenuOpen && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden md:hidden"
+                            style={{
+                                borderTop: '1px solid var(--border-subtle)',
+                                background: 'var(--bg-surface)',
+                            }}
+                        >
+                            <nav className="flex flex-col p-4 gap-1">
+                                {navLinks.map((link) => {
+                                    const isActive = currentNavId === link.id
+                                    return (
+                                        <button
+                                            key={link.id}
+                                            onClick={() => handleNavigate(link.id)}
+                                            className="flex items-center px-4 py-3 rounded-lg text-left transition-colors"
+                                            style={{
+                                                fontFamily: "'DM Sans', sans-serif",
+                                                fontSize: '0.9rem',
+                                                fontWeight: 500,
+                                                color: isActive ? 'var(--glow-primary)' : 'var(--text-secondary)',
+                                                background: isActive ? 'rgba(14, 165, 233, 0.08)' : 'transparent',
+                                            }}
+                                        >
+                                            {link.label}
+                                        </button>
+                                    )
+                                })}
+                                <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '8px 0' }} />
+                                <button
+                                    onClick={handleLogout}
+                                    disabled={loggingOut}
+                                    className="flex items-center gap-2 px-4 py-3 rounded-lg text-left transition-colors"
+                                    style={{
+                                        fontFamily: "'DM Sans', sans-serif",
+                                        fontSize: '0.9rem',
+                                        fontWeight: 500,
+                                        color: 'var(--text-muted)',
+                                    }}
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                    {loggingOut ? 'Signing out…' : 'Sign Out'}
+                                </button>
+                            </nav>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </header>
+
+            {/* ── Main content area — full width ──────────────────────────── */}
+            <main className="flex-1 w-full">
+                <div className="p-4 sm:p-8 max-w-[1440px] mx-auto w-full">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeView === 'course-detail' ? `course-${selectedCourse?.id}` : activeView}

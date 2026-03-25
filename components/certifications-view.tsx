@@ -16,10 +16,13 @@ export function CertificationsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        <h1
+          className="text-2xl font-bold tracking-tight"
+          style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+        >
           Certifications
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
           {credentials.length} active professional credentials
         </p>
       </motion.div>
@@ -51,19 +54,23 @@ export function CertificationsView() {
           <div
             key={stat.label}
             className={cn(
-              "rounded-xl border border-border bg-card p-5 text-center",
-              stat.accent && "border-primary/20"
+              'rounded-xl p-5 text-center',
             )}
+            style={{
+              background: 'var(--bg-surface)',
+              border: stat.accent ? '1px solid var(--border-glow)' : '1px solid var(--border-subtle)',
+            }}
           >
             <p
-              className={cn(
-                "text-2xl font-bold",
-                stat.accent ? "text-primary" : "text-card-foreground"
-              )}
+              className={cn('text-2xl font-bold')}
+              style={{
+                color: stat.accent ? 'var(--glow-primary)' : 'var(--text-primary)',
+                fontFamily: "'Sora', sans-serif",
+              }}
             >
               {stat.value}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">{stat.label}</p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>{stat.label}</p>
           </div>
         ))}
       </motion.div>
@@ -76,16 +83,34 @@ export function CertificationsView() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.12 + index * 0.08 }}
-            className="group rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/30 hover:shadow-[0_0_20px_-5px] hover:shadow-primary/8"
+            className="group rounded-xl p-5 transition-all"
+            style={{
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-subtle)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-glow)'
+              e.currentTarget.style.boxShadow = 'var(--shadow-glow-sm)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-subtle)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
           >
             <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/15">
-                <Award className="h-5 w-5 text-primary" />
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                style={{
+                  background: 'rgba(14, 165, 233, 0.1)',
+                  border: '1px solid rgba(14, 165, 233, 0.15)',
+                }}
+              >
+                <Award className="h-5 w-5" style={{ color: 'var(--glow-primary)' }} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-card-foreground">
+                    <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                       {cred.name}
                     </h3>
                     <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -99,13 +124,23 @@ export function CertificationsView() {
                       </span>
                     </div>
                   </div>
-                  <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-400 border border-emerald-500/20">
+                  <span
+                    className="inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      border: '1px solid rgba(16, 185, 129, 0.2)',
+                      color: 'var(--glow-green)',
+                    }}
+                  >
                     {cred.status}
                   </span>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-border">
-                  <button className="flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80">
+                <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <button
+                    className="flex items-center gap-1 text-xs font-medium transition-colors"
+                    style={{ color: 'var(--glow-primary)' }}
+                  >
                     View Certificate
                     <ExternalLink className="h-3 w-3" />
                   </button>

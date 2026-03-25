@@ -164,29 +164,54 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex flex-col gap-4 pb-6 border-b border-border"
+        className="flex flex-col gap-4 pb-6"
+        style={{ borderBottom: '1px solid var(--border-subtle)' }}
       >
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-fit text-muted-foreground hover:text-foreground gap-1.5"
+        <button
+          className="w-fit flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors"
+          style={{
+            color: 'var(--text-muted)',
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-overlay)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent' }}
           onClick={onBack}
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Courses
-        </Button>
+        </button>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-xl font-bold tracking-tight text-foreground text-balance">
+          <div className="flex flex-col gap-2">
+            <h1
+              className="text-balance"
+              style={{
+                fontFamily: "'Sora', sans-serif",
+                fontSize: '2.5rem',
+                fontWeight: 800,
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.02em',
+                lineHeight: 1.15,
+              }}
+            >
               {course.displayname || course.fullname}
             </h1>
-            <p className="text-sm text-muted-foreground">{course.shortname}</p>
+            <span
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '0.8rem',
+                color: 'var(--glow-accent)',
+                fontWeight: 500,
+              }}
+            >
+              {course.shortname}
+            </span>
             {course.summary && (
               <div className="mt-2 max-w-xl">
                 <SanitizedHTML
                   html={course.summary}
-                  className="text-xs leading-relaxed text-muted-foreground/80 [&_p]:mb-1 [&_a]:text-primary [&_a]:underline"
+                  className="text-xs leading-relaxed [&_p]:mb-1 [&_a]:underline"
+                  style={{ color: 'var(--text-secondary)' }}
                   stripImages
                 />
               </div>
@@ -201,22 +226,26 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                   <circle
                     cx="20" cy="20" r="16"
                     fill="none" strokeWidth="3"
-                    className="stroke-secondary"
+                    stroke="var(--bg-overlay)"
                   />
                   <circle
                     cx="20" cy="20" r="16"
                     fill="none" strokeWidth="3"
                     strokeDasharray={`${((course.progress ?? 0) / 100) * (2 * Math.PI * 16)} ${2 * Math.PI * 16}`}
                     strokeLinecap="round"
-                    className="stroke-primary transition-all duration-700"
+                    stroke="var(--glow-primary)"
+                    style={{ transition: 'all 0.7s ease' }}
                   />
                 </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-foreground">
+                <span
+                  className="absolute inset-0 flex items-center justify-center text-[11px] font-bold"
+                  style={{ color: 'var(--text-primary)', fontFamily: "'JetBrains Mono', monospace" }}
+                >
                   {Math.round(course.progress ?? 0)}%
                 </span>
               </div>
-              <div className="text-xs text-muted-foreground">
-                <p className="font-semibold text-foreground">Progress</p>
+              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Progress</p>
                 <p>
                   {visibleSections.length} section{visibleSections.length !== 1 ? 's' : ''}
                 </p>
@@ -232,23 +261,30 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.15 }}
-          className="mt-4 rounded-xl border border-border bg-card px-5 py-4"
+          className="mt-4 rounded-xl px-5 py-4"
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-subtle)',
+          }}
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-foreground">
+            <span
+              className="text-sm font-medium"
+              style={{ color: 'var(--text-primary)', fontFamily: "'Sora', sans-serif" }}
+            >
               Module {completedModules} of {totalModules}
             </span>
             <span
               className="text-sm font-bold tabular-nums"
-              style={{ color: 'var(--quiz-accent-primary)' }}
+              style={{ color: 'var(--glow-primary)', fontFamily: "'JetBrains Mono', monospace" }}
             >
               {progressPercent}% Complete
             </span>
           </div>
-          <div className="h-2 rounded-full bg-secondary overflow-hidden">
+          <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-overlay)' }}>
             <motion.div
               className="h-full rounded-full"
-              style={{ background: 'var(--quiz-accent-primary)' }}
+              style={{ background: 'linear-gradient(90deg, var(--glow-primary), var(--glow-purple))' }}
               initial={{ width: 0 }}
               animate={{ width: `${progressPercent}%` }}
               transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
@@ -307,12 +343,19 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: sectionIndex * 0.06 }}
-                  className="rounded-xl border border-border bg-card overflow-hidden"
+                  className="rounded-xl overflow-hidden"
+                  style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
                 >
                   {/* Section header */}
                   <button
                     onClick={() => toggleSection(section.id)}
-                    className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-secondary/40 transition-colors"
+                    className="w-full flex items-center gap-3 px-5 py-4 text-left transition-all duration-200"
+                    style={{ background: 'transparent' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-elevated)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                     aria-expanded={isExpanded}
                   >
                     <ChevronRight
@@ -328,7 +371,10 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground">
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+                      >
                         {section.name || `Section ${section.section + 1}`}
                       </p>
                       {section.summary && !isExpanded && (
@@ -360,11 +406,11 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                         transition={{ duration: 0.25 }}
                         className="overflow-hidden"
                       >
-                        <div className="px-5 pb-5 flex flex-col gap-3 border-t border-border/50">
+                        <div className="pb-5 flex flex-col gap-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                           {section.summary && (
                             <SanitizedHTML
                               html={section.summary}
-                              className="pt-4 text-xs leading-relaxed text-muted-foreground [&_a]:text-primary [&_a]:underline [&_p]:mb-1"
+                              className="px-5 pt-4 text-xs leading-relaxed text-muted-foreground [&_a]:text-primary [&_a]:underline [&_p]:mb-1"
                             />
                           )}
                           {visibleModules.length > 0 ? (
@@ -423,7 +469,8 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between gap-2 mt-6 pt-4 border-t border-border"
+            className="flex items-center justify-between gap-2 mt-6 pt-4"
+            style={{ borderTop: '1px solid var(--border-subtle)' }}
           >
             <Button
               variant="outline"

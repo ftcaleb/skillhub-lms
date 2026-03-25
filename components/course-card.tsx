@@ -56,18 +56,31 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.08, ease: 'easeOut' }}
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card',
+        'group relative flex flex-col overflow-hidden rounded-2xl',
         'transition-all duration-300',
-        'hover:border-primary/30 hover:shadow-[0_0_30px_-5px] hover:shadow-primary/10 hover:-translate-y-0.5',
         onOpen && 'cursor-pointer',
       )}
+      style={{
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border-subtle)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-4px)'
+        e.currentTarget.style.borderColor = 'var(--border-glow)'
+        e.currentTarget.style.boxShadow = 'var(--shadow-card), var(--shadow-glow-sm)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.borderColor = 'var(--border-subtle)'
+        e.currentTarget.style.boxShadow = 'none'
+      }}
       onClick={onOpen}
       role={onOpen ? 'button' : undefined}
       tabIndex={onOpen ? 0 : undefined}
       onKeyDown={onOpen ? (e) => e.key === 'Enter' && onOpen() : undefined}
     >
       {/* Thumbnail / Color block */}
-      <div className="relative aspect-[16/9] overflow-hidden bg-secondary">
+      <div className="relative aspect-[16/9] overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
         {showThumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -88,15 +101,23 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
             <BookOpen className="h-12 w-12 text-muted-foreground/20" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 40%, var(--bg-surface) 100%)' }} />
 
         {/* Shortname tag */}
         <div className="absolute top-3 left-3">
           <span
-            className={cn(
-              'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider',
-              accentClass,
-            )}
+            className="inline-flex items-center rounded-md px-2 py-1"
+            style={{
+              background: 'rgba(6,13,24,0.8)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '6px',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '0.7rem',
+              fontWeight: 500,
+              color: 'var(--glow-accent)',
+              letterSpacing: '0.04em',
+            }}
           >
             {course.shortname}
           </span>
@@ -105,7 +126,14 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
         {/* Completed badge */}
         {isCompleted && (
           <div className="absolute top-3 right-3">
-            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 border border-emerald-500/25 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
+            <span
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold"
+              style={{
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                color: 'var(--glow-green)',
+              }}
+            >
               <CheckCircle2 className="h-3 w-3" />
               Completed
             </span>
@@ -114,16 +142,32 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col gap-3 p-4">
+      <div className="flex flex-1 flex-col gap-3" style={{ padding: '16px 20px 20px' }}>
         <div className="flex-1">
-          <h3 className="text-sm font-semibold leading-snug text-card-foreground line-clamp-2 text-balance">
+          <h3
+            className="line-clamp-2 text-balance"
+            style={{
+              fontFamily: "'Sora', sans-serif",
+              fontSize: '1.0625rem',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              lineHeight: 1.4,
+              marginBottom: '8px',
+            }}
+          >
             {course.displayname || course.fullname}
           </h3>
           {course.summary && (
             <div className="mt-1.5">
               <SanitizedHTML
                 html={course.summary}
-                className="text-xs text-muted-foreground line-clamp-2 [&_*]:text-inherit [&_p]:m-0"
+                className="line-clamp-2 [&_*]:text-inherit [&_p]:m-0"
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: '0.875rem',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.5,
+                }}
                 stripImages
               />
             </div>
@@ -132,7 +176,7 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
 
         {/* Meta row */}
         {course.lastaccess > 0 && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
             <Clock className="h-3 w-3" />
             <span>
               Last accessed{' '}
@@ -144,24 +188,45 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
         )}
 
         {/* Progress + CTA */}
-        <div className="flex items-center justify-between border-t border-border pt-3">
+        <div
+          className="flex items-center justify-between pt-4 mt-4"
+          style={{ borderTop: '1px solid var(--border-subtle)' }}
+        >
           {course.hasprogress ? (
             <CircularProgress value={progress} size={44} strokeWidth={3.5} />
           ) : (
-            <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-border">
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-full"
+              style={{ border: '2px solid var(--border-subtle)' }}
+            >
               <span className={cn('text-xs font-bold', textColor)}>
                 {course.shortname.substring(0, 2).toUpperCase()}
               </span>
             </div>
           )}
-          <Button
-            size="sm"
-            className={cn(
-              'text-xs font-semibold',
-              isCompleted
-                ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90',
-            )}
+          <button
+            className="text-xs font-semibold rounded-lg px-4 py-2 transition-all duration-200"
+            style={{
+              background: isCompleted
+                ? 'var(--bg-elevated)'
+                : 'linear-gradient(135deg, var(--glow-accent), #ea580c)',
+              color: isCompleted ? 'var(--text-secondary)' : 'white',
+              border: isCompleted ? '1px solid var(--border-subtle)' : 'none',
+              fontFamily: "'DM Sans', sans-serif",
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              boxShadow: isCompleted ? 'none' : 'var(--glow-orange)',
+            }}
+            onMouseEnter={(e) => {
+              if (!isCompleted) {
+                e.currentTarget.style.filter = 'brightness(1.1)'
+                e.currentTarget.style.transform = 'scale(1.02)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.filter = 'brightness(1)'
+              e.currentTarget.style.transform = 'scale(1)'
+            }}
             onClick={(e) => {
               e.stopPropagation()
               onOpen?.()
@@ -175,7 +240,7 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
                 {progress > 0 ? 'Resume' : 'Start'}
               </span>
             )}
-          </Button>
+          </button>
         </div>
       </div>
     </motion.article>

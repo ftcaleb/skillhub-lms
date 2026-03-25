@@ -92,12 +92,12 @@ function CompletionButton({ courseId, cmid, completionData, onUpdated }: Complet
     }
 
     return (
-        <Button
+        <button
             onClick={handleMarkAsDone}
             disabled={isLoading || isDone}
             className={cn(
-                'mt-4 w-full',
-                isDone ? 'bg-emerald-500/90 text-white' : 'bg-foreground text-background',
+                'mark-complete-btn mt-4 w-full flex items-center justify-center',
+                isDone && 'completed',
             )}
         >
             {isLoading ? (
@@ -106,11 +106,11 @@ function CompletionButton({ courseId, cmid, completionData, onUpdated }: Complet
                     Updating...
                 </>
             ) : isDone ? (
-                <span className="text-emerald-200">Completed ✓</span>
+                <span>Completed ✓</span>
             ) : (
                 'Mark as Done'
             )}
-        </Button>
+        </button>
     )
 }
 
@@ -120,10 +120,11 @@ function LabelModule({ mod }: { mod: HydratedMoodleModule }) {
     const content = mod.description ?? ''
     if (!content.trim()) return null
     return (
-        <div className="rounded-lg border border-border/40 bg-secondary/30 px-4 py-3">
+        <div className="rounded-lg px-4 py-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
             <SanitizedHTML
                 html={content}
-                className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed text-muted-foreground [&_a]:text-primary [&_a]:underline [&_p]:mb-2"
+                className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed [&_a]:underline [&_p]:mb-2"
+                style={{ color: 'var(--text-secondary)' }}
             />
         </div>
     )
@@ -135,26 +136,29 @@ function ResourceModule({ mod }: { mod: HydratedMoodleModule }) {
         return <GenericModule mod={mod} />
     }
     return (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
-                <FileText className="h-4 w-4 text-blue-400 shrink-0" />
-                <p className="flex-1 text-sm font-medium text-card-foreground">{mod.name}</p>
+        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+            <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <FileText className="h-4 w-4 shrink-0" style={{ color: 'var(--glow-primary)' }} />
+                <p className="flex-1 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{mod.name}</p>
             </div>
-            <div className="flex flex-col divide-y divide-border/50">
+            <div className="flex flex-col" style={{ borderColor: 'var(--border-subtle)' }}>
                 {files.map((file) => (
                     <a
                         key={file.filename}
                         href={proxyFileUrl(file.fileurl)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-xs text-muted-foreground hover:bg-secondary/50 transition-colors group"
+                        className="flex items-center gap-3 px-4 py-2.5 text-xs transition-colors group"
+                        style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-subtle)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-elevated)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                         target="_blank"
                         rel="noopener noreferrer"
                     >
-                        <Download className="h-3.5 w-3.5 shrink-0 group-hover:text-foreground transition-colors" />
-                        <span className="flex-1 min-w-0 truncate group-hover:text-foreground transition-colors">
+                        <Download className="h-3.5 w-3.5 shrink-0" />
+                        <span className="flex-1 min-w-0 truncate">
                             {file.filename}
                         </span>
                         {file.filesize > 0 && (
-                            <span className="shrink-0 text-[10px] text-muted-foreground/60">
+                            <span className="shrink-0 text-[10px]" style={{ color: 'var(--text-muted)' }}>
                                 {(file.filesize / 1024).toFixed(0)} KB
                             </span>
                         )}
@@ -345,18 +349,30 @@ function PageModule({ mod, courseId, onCompletionUpdated }: { mod: HydratedMoodl
     // (Do NOT sanitize here - SanitizedHTML has better iframe handling)
 
     return (
-        <div className="rounded-xl border border-violet-500/20 bg-card overflow-hidden shadow-sm">
+        <div className="lesson-content-wrapper rounded-xl overflow-hidden shadow-sm" style={{ padding: 0 }}>
             {/* Page title header */}
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-border/30 bg-linear-to-r from-violet-500/10 to-transparent">
-                <BookOpen className="h-5 w-5 text-violet-400 shrink-0" />
-                <h2 className="text-base font-bold text-foreground">{mod.name}</h2>
+            <div
+                className="flex items-center gap-3 px-6 py-4"
+                style={{
+                    borderBottom: '1px solid var(--border-subtle)',
+                    background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.08) 0%, transparent 100%)',
+                }}
+            >
+                <BookOpen className="h-5 w-5 shrink-0" style={{ color: 'var(--glow-purple)' }} />
+                <h2
+                    className="text-base font-bold"
+                    style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+                >
+                    {mod.name}
+                </h2>
             </div>
 
             {/* Native HTML content with prose styling */}
             <div className="px-8 py-8">
                 <SanitizedHTML
                     html={content}
-                    className="prose prose-invert max-w-none text-foreground [&_h1]:text-4xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-6 [&_h1]:text-foreground [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h2]:text-foreground [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-foreground [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:mt-5 [&_h4]:mb-2 [&_p]:mb-5 [&_p]:leading-7 [&_p]:text-sm [&_ul]:mb-6 [&_ul]:list-disc [&_ul]:pl-8 [&_ul]:space-y-2 [&_ol]:mb-6 [&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:space-y-2 [&_li]:text-sm [&_li]:leading-6 [&_a]:text-violet-400 [&_a]:hover:text-violet-300 [&_a]:underline [&_a]:transition-colors [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_em]:text-foreground [&_code]:bg-secondary/50 [&_code]:px-2.5 [&_code]:py-1.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_code]:text-purple-300 [&_pre]:bg-secondary/70 [&_pre]:p-5 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-sm [&_blockquote]:border-l-4 [&_blockquote]:border-violet-400/50 [&_blockquote]:pl-5 [&_blockquote]:py-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_blockquote]:bg-secondary/20 [&_blockquote]:rounded-r [&_table]:w-full [&_table]:border-collapse [&_table]:my-6 [&_th]:border [&_th]:border-border/50 [&_th]:px-4 [&_th]:py-3 [&_th]:bg-secondary/50 [&_th]:text-left [&_th]:font-semibold [&_th]:text-foreground [&_td]:border [&_td]:border-border/50 [&_td]:px-4 [&_td]:py-3 [&_td]:text-sm [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto [&_img]:my-6 [&_img]:shadow-md [&_.video-embed]:w-full [&_.video-embed]:my-6 [&_.video-embed]:flex [&_.video-embed]:justify-center [&_iframe]:w-full [&_iframe]:rounded-lg [&_iframe]:aspect-video [&_video]:rounded-lg [&_video]:max-w-full [&_video]:my-6"
+                    className="moodle-content prose prose-invert max-w-none [&_h1]:text-4xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-6 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:mt-5 [&_h4]:mb-2 [&_p]:mb-5 [&_p]:leading-7 [&_p]:text-sm [&_ul]:mb-6 [&_ul]:list-disc [&_ul]:pl-8 [&_ul]:space-y-2 [&_ol]:mb-6 [&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:space-y-2 [&_li]:text-sm [&_li]:leading-6 [&_a]:underline [&_a]:transition-colors [&_strong]:font-semibold [&_em]:italic [&_code]:px-2.5 [&_code]:py-1.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_pre]:p-5 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-sm [&_blockquote]:border-l-4 [&_blockquote]:pl-5 [&_blockquote]:py-3 [&_blockquote]:italic [&_blockquote]:rounded-r [&_table]:w-full [&_table]:border-collapse [&_table]:my-6 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold [&_td]:px-4 [&_td]:py-3 [&_td]:text-sm [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto [&_img]:my-6 [&_img]:shadow-md [&_.video-embed]:w-full [&_.video-embed]:my-6 [&_.video-embed]:flex [&_.video-embed]:justify-center [&_iframe]:w-full [&_iframe]:rounded-lg [&_iframe]:aspect-video [&_video]:rounded-lg [&_video]:max-w-full [&_video]:my-6"
+                    style={{ color: 'var(--text-secondary)' }}
                 />
 
                 <CompletionButton
