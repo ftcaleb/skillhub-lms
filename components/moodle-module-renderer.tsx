@@ -70,18 +70,35 @@ function CompletionButton({ courseId, cmid, completionData, onUpdated }: Complet
 
     const handleMarkAsDone = async () => {
         if (isLoading || isDone) return
+
+        // Defensive check for valid courseId
+        const numericCourseId = typeof courseId === 'string' ? parseInt(courseId, 10) : courseId
+        if (!numericCourseId || isNaN(numericCourseId)) {
+            console.error('[CompletionButton] Missing or invalid courseId:', courseId)
+            return
+        }
+
         setIsLoading(true)
 
         try {
-            const resp = await fetch(`/api/courses/${courseId}/completion`, {
+            const endpoint = `/api/courses/${numericCourseId}/completion`
+            
+            const resp = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cmid, completed: true }),
             })
-            if (!resp.ok) throw new Error('Failed to update completion status')
+            
+            if (!resp.ok) {
+                const errorData = await resp.json().catch(() => ({}))
+                throw new Error(errorData.error || `Failed to update completion status (HTTP ${resp.status})`)
+            }
 
-            // Re-fetch the completion status endpoint over the wire.
-            await fetch(`/api/courses/${courseId}/completion`, { cache: 'no-store' })
+            // Re-fetch the completion status to update locally cached state if needed
+            // This also ensures the GET endpoint is revalidated.
+            await fetch(endpoint, { cache: 'no-store' }).catch(() => {
+                // Ignore GET error if POST succeeded, as it's non-critical
+            })
 
             if (onUpdated) onUpdated()
         } catch (error) {
@@ -93,6 +110,7 @@ function CompletionButton({ courseId, cmid, completionData, onUpdated }: Complet
 
     return (
         <button
+            type="button"
             onClick={handleMarkAsDone}
             disabled={isLoading || isDone}
             className={cn(
