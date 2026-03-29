@@ -9,7 +9,7 @@ export function CertificationsView() {
   const { credentials } = userProfile
 
   return (
-    <div className="flex flex-col gap-8 max-w-2xl">
+    <div className="flex flex-col gap-8 max-w-2xl mx-auto">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -12 }}

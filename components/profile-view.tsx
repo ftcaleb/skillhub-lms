@@ -89,7 +89,7 @@ export function ProfileView() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-8 max-w-2xl">
+      <div className="flex flex-col gap-8 max-w-2xl mx-auto">
         <div className="rounded-2xl p-8 animate-pulse" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-5">
             <div className="h-20 w-20 rounded-full skeleton shrink-0" />
@@ -127,7 +127,7 @@ export function ProfileView() {
   const initials = `${profile.firstname?.[0] ?? ''}${profile.lastname?.[0] ?? ''}`.toUpperCase() || profile.username.substring(0, 2).toUpperCase()
 
   return (
-    <div className="flex flex-col gap-8 max-w-2xl">
+    <div className="flex flex-col gap-8 max-w-2xl mx-auto">
       {/* Glassmorphism header card */}
       <motion.div
         initial={{ opacity: 0, y: -16 }}

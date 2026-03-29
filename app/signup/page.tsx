@@ -127,63 +127,73 @@ export default function SignupPage() {
     }
 
     return (
-        <div className="min-h-dvh flex items-center justify-center bg-background px-4 py-8">
-            {/* Background glow */}
+        <div className="min-h-dvh flex items-center justify-center px-4 py-12" style={{ background: 'var(--bg-base)' }}>
+            {/* Background glow — matching dashboard ambience */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
                 <div
-                    className="absolute -top-32 left-1/2 -translate-x-1/2 h-80 w-80 rounded-full opacity-20 blur-3xl"
-                    style={{ background: 'radial-gradient(circle, oklch(0.75 0.16 65), transparent)' }}
+                    className="absolute -top-32 left-1/2 -translate-x-1/2 h-96 w-96 rounded-full opacity-20 blur-3xl"
+                    style={{ background: 'radial-gradient(circle, var(--glow-primary), transparent)' }}
                 />
                 <div
-                    className="absolute bottom-0 left-0 h-60 w-60 rounded-full opacity-10 blur-3xl"
-                    style={{ background: 'radial-gradient(circle, oklch(0.6 0.2 260), transparent)' }}
+                    className="absolute bottom-0 left-0 h-80 w-80 rounded-full opacity-10 blur-3xl"
+                    style={{ background: 'radial-gradient(circle, var(--glow-purple), transparent)' }}
                 />
             </div>
 
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="relative w-full max-w-sm"
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                className="relative w-full max-w-[440px]"
             >
                 <div
-                    className="rounded-2xl border border-border/50 p-8 shadow-2xl"
+                    className="rounded-2xl p-8 backdrop-blur-xl transition-all duration-300"
                     style={{
-                        background:
-                            'linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,41,59,0.90) 100%)',
-                        backdropFilter: 'blur(24px)',
+                        background: 'rgba(10, 22, 40, 0.75)',
+                        border: '1px solid var(--border-subtle)',
+                        boxShadow: 'var(--shadow-card), var(--shadow-glow-sm)',
                     }}
                 >
-                    {/* Logo */}
-                    <div className="mb-7 flex flex-col items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/30">
-                            <Package className="h-6 w-6 text-primary-foreground" />
-                        </div>
+                    {/* Logo Section */}
+                    <div className="mb-8 flex flex-col items-center">
+                        <motion.img
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ delay: 0.2, duration: 0.5 }}
+                            src="/images/Logo.png"
+                            alt="SkillHub International logo"
+                            className="h-16 w-16 object-contain mb-4 drop-shadow-[0_0_10px_rgba(14,165,233,0.3)]"
+                        />
                         <div className="text-center">
-                            <h1 className="text-xl font-bold tracking-tight text-foreground">Create account</h1>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Join Nexus Supply Chain LMS
+                            <h1 
+                                className="text-2xl font-bold tracking-tight mb-1"
+                                style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+                            >
+                                Create Account
+                            </h1>
+                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                Join the <span className="font-semibold" style={{ color: 'var(--glow-primary)' }}>SkillHub</span> community
                             </p>
                         </div>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="flex flex-col gap-3.5" noValidate>
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
                         {error && (
                             <motion.div
-                                initial={{ opacity: 0, y: -8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-xs text-destructive"
                                 role="alert"
                             >
-                                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                                 {error}
                             </motion.div>
                         )}
 
                         {/* First + Last Name row */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="grid gap-1.5">
-                                <Label htmlFor="firstname" className="text-xs text-muted-foreground">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="firstname" className="text-xs font-medium px-1" style={{ color: 'var(--text-muted)' }}>
                                     First Name
                                 </Label>
                                 <Input
@@ -193,13 +203,13 @@ export default function SignupPage() {
                                     value={form.firstname}
                                     onChange={update('firstname')}
                                     placeholder="Jane"
-                                    className="h-10 bg-input border-border text-foreground placeholder:text-muted-foreground/50"
+                                    className="h-11 bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.1)] focus:border-[var(--glow-primary)] focus:ring-[var(--glow-primary)] text-foreground rounded-xl transition-all"
                                     disabled={loading}
                                     required
                                 />
                             </div>
-                            <div className="grid gap-1.5">
-                                <Label htmlFor="lastname" className="text-xs text-muted-foreground">
+                            <div className="grid gap-2">
+                                <Label htmlFor="lastname" className="text-xs font-medium px-1" style={{ color: 'var(--text-muted)' }}>
                                     Last Name
                                 </Label>
                                 <Input
@@ -209,15 +219,15 @@ export default function SignupPage() {
                                     value={form.lastname}
                                     onChange={update('lastname')}
                                     placeholder="Doe"
-                                    className="h-10 bg-input border-border text-foreground placeholder:text-muted-foreground/50"
+                                    className="h-11 bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.1)] focus:border-[var(--glow-primary)] focus:ring-[var(--glow-primary)] text-foreground rounded-xl transition-all"
                                     disabled={loading}
                                     required
                                 />
                             </div>
                         </div>
 
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="signup-username" className="text-xs text-muted-foreground">
+                        <div className="grid gap-2">
+                            <Label htmlFor="signup-username" className="text-xs font-medium px-1" style={{ color: 'var(--text-muted)' }}>
                                 Username
                             </Label>
                             <Input
@@ -227,14 +237,14 @@ export default function SignupPage() {
                                 value={form.username}
                                 onChange={update('username')}
                                 placeholder="jane.doe"
-                                className="h-10 bg-input border-border text-foreground placeholder:text-muted-foreground/50"
+                                className="h-11 bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.1)] focus:border-[var(--glow-primary)] focus:ring-[var(--glow-primary)] text-foreground rounded-xl transition-all"
                                 disabled={loading}
                                 required
                             />
                         </div>
 
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="email" className="text-xs text-muted-foreground">
+                        <div className="grid gap-2">
+                            <Label htmlFor="email" className="text-xs font-medium px-1" style={{ color: 'var(--text-muted)' }}>
                                 Email Address
                             </Label>
                             <Input
@@ -244,14 +254,14 @@ export default function SignupPage() {
                                 value={form.email}
                                 onChange={update('email')}
                                 placeholder="jane@company.com"
-                                className="h-10 bg-input border-border text-foreground placeholder:text-muted-foreground/50"
+                                className="h-11 bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.1)] focus:border-[var(--glow-primary)] focus:ring-[var(--glow-primary)] text-foreground rounded-xl transition-all"
                                 disabled={loading}
                                 required
                             />
                         </div>
 
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="signup-password" className="text-xs text-muted-foreground">
+                        <div className="grid gap-2">
+                            <Label htmlFor="signup-password" className="text-xs font-medium px-1" style={{ color: 'var(--text-muted)' }}>
                                 Password
                             </Label>
                             <div className="relative">
@@ -262,17 +272,17 @@ export default function SignupPage() {
                                     value={form.password}
                                     onChange={update('password')}
                                     placeholder="••••••••"
-                                    className="h-10 bg-input border-border text-foreground placeholder:text-muted-foreground/50 pr-10"
+                                    className="h-11 bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.1)] focus:border-[var(--glow-primary)] focus:ring-[var(--glow-primary)] text-foreground rounded-xl transition-all pr-12"
                                     disabled={loading}
                                     required
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
                                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                                 >
-                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
                                 </button>
                             </div>
                             <PasswordStrength password={form.password} />
@@ -280,8 +290,15 @@ export default function SignupPage() {
 
                         <Button
                             type="submit"
-                            className="mt-1 h-10 w-full bg-primary text-primary-foreground font-semibold hover:bg-primary/90 shadow-lg shadow-primary/20"
+                            className="mt-4 h-11 w-full font-bold rounded-xl transition-all duration-300"
+                            style={{ 
+                                background: 'linear-gradient(135deg, var(--glow-primary), #0284c7)',
+                                color: 'white',
+                                boxShadow: 'var(--shadow-glow-sm)'
+                            }}
                             disabled={loading}
+                            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-glow-md)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-glow-sm)'; e.currentTarget.style.transform = 'none' }}
                         >
                             {loading ? (
                                 <span className="flex items-center gap-2">
@@ -294,11 +311,12 @@ export default function SignupPage() {
                         </Button>
                     </form>
 
-                    <p className="mt-6 text-center text-xs text-muted-foreground">
+                    <p className="mt-8 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
                         Already have an account?{' '}
                         <Link
                             href="/login"
-                            className="font-medium text-primary hover:text-primary/80 transition-colors"
+                            className="font-semibold transition-colors"
+                            style={{ color: 'var(--glow-primary)' }}
                         >
                             Sign in
                         </Link>
