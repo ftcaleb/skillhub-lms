@@ -71,7 +71,7 @@ export default function DashboardPage() {
                         <img
                             src="/images/Logo.png"
                             alt="SkillHub logo"
-                            className="h-10 w-10 object-contain"
+                            className="h-12 w-12 object-contain"
                         />
                         <span
                             className="hidden sm:block text-lg font-bold tracking-tight"
