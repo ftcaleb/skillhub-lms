@@ -27,6 +27,8 @@ import type {
     MoodleQuizFeedbackResponse,
     MoodleGradeItemsResponse,
     MoodleActivitiesCompletionStatus,
+    MoodleUsersByFieldUser,
+    MoodleUpdatePictureResponse,
 } from './types'
 
 class MoodleService {
@@ -482,6 +484,62 @@ class MoodleService {
         const url = new URL(fileUrl)
         url.searchParams.set('token', token)
         return url.toString()
+    }
+    /**
+     * Update user picture using a draft item id.
+     */
+    async updateUserPicture(
+        token: string,
+        draftitemid: number,
+        userId: number,
+    ): Promise<MoodleUpdatePictureResponse> {
+        return this.fetchWS<MoodleUpdatePictureResponse>(
+            token,
+            'core_user_update_picture',
+            { draftitemid, userid: userId },
+        )
+    }
+
+    /**
+     * Update user details (e.g. firstname, lastname).
+     */
+    async updateUsers(
+        token: string,
+        users: Array<{ id: number; firstname?: string; lastname?: string }>,
+    ): Promise<void> {
+        const params: Record<string, string | number> = {}
+        users.forEach((user, index) => {
+            params[`users[${index}][id]`] = user.id
+            if (user.firstname) params[`users[${index}][firstname]`] = user.firstname
+            if (user.lastname) params[`users[${index}][lastname]`] = user.lastname
+        })
+
+        await this.fetchWS(
+            token,
+            'core_user_update_users',
+            params,
+        )
+    }
+
+    /**
+     * Get users by field (e.g. 'id' or 'username').
+     */
+    async getUsersByField(
+        token: string,
+        field: string,
+        values: string[] | number[],
+    ): Promise<MoodleUsersByFieldUser[]> {
+        const params: Record<string, string | number> = { field }
+        values.forEach((val, index) => {
+            params[`values[${index}]`] = val
+        })
+
+        const result = await this.fetchWS<MoodleUsersByFieldUser[]>(
+            token,
+            'core_user_get_users_by_field',
+            params,
+        )
+        return Array.isArray(result) ? result : []
     }
 }
 

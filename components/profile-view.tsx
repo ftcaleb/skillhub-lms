@@ -19,32 +19,29 @@ import { MilestoneTimeline } from '@/components/milestone-timeline'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-
-interface MoodleProfile {
-  userid: number
-  fullname: string
-  firstname: string
-  lastname: string
-  username: string
-  userpictureurl: string
-  sitename: string
-  email: string | null
-}
+import { useProfile } from '@/components/profile-context'
 
 // Editing only modifies local state — Moodle profile mutation
 // requires core_user_update_users which is not in the service whitelist
 interface EditableFields {
-  fullname: string
+  firstname: string
+  lastname: string
 }
 
 export function ProfileView() {
   const router = useRouter()
-  const [profile, setProfile] = useState<MoodleProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { profile, loading, error, refreshProfile, updateProfileOptimistically } = useProfile()
   const [isEditing, setIsEditing] = useState(false)
-  const [editData, setEditData] = useState<EditableFields>({ fullname: '' })
+  const [editData, setEditData] = useState<EditableFields>({ firstname: '', lastname: '' })
   const [loggingOut, setLoggingOut] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  
+  // Sync edit data when profile is loaded or edit mode turns on
+  useEffect(() => {
+    if (profile) {
+      setEditData({ firstname: profile.firstname, lastname: profile.lastname })
+    }
+  }, [profile, isEditing])
 
   async function handleLogout() {
     setLoggingOut(true)
@@ -55,35 +52,70 @@ export function ProfileView() {
     }
   }
 
-  useEffect(() => {
-    async function fetchProfile() {
-      try {
-        const res = await fetch('/api/auth/me')
-        if (res.status === 401) {
-          router.push('/login')
-          return
-        }
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Failed to load profile.')
-        setProfile(data)
-        setEditData({ fullname: data.fullname })
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchProfile()
-  }, [router])
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
 
-  function handleSave() {
-    if (!editData.fullname.trim()) return
-    setProfile((p) => p ? { ...p, fullname: editData.fullname } : p)
+    // Limit to 1MB to prevent Moodle NGINX 413 "Request Entity Too Large" errors
+    const MAX_MB = 1
+    if (file.size > MAX_MB * 1024 * 1024) {
+      alert(`Image is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Please choose a file under ${MAX_MB}MB.`)
+      e.target.value = ''
+      return
+    }
+
+    setUploadingImage(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/user/picture', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null)
+        throw new Error(errorData?.error || 'Failed to upload image to Moodle')
+      }
+
+      const data = await res.json()
+      if (data.success && data.userpictureurl) {
+        updateProfileOptimistically({ userpictureurl: data.userpictureurl })
+      }
+    } catch (err: any) {
+      alert(err.message || 'Image upload failed. Please try again.')
+    } finally {
+      setUploadingImage(false)
+      // reset input
+      e.target.value = ''
+    }
+  }
+
+  async function handleSave() {
+    if (!editData.firstname.trim() && !editData.lastname.trim()) return
     setIsEditing(false)
+    updateProfileOptimistically({ 
+      firstname: editData.firstname, 
+      lastname: editData.lastname,
+      fullname: `${editData.firstname} ${editData.lastname}`.trim()
+    })
+    
+    try {
+      await fetch('/api/user/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editData)
+      })
+      refreshProfile()
+    } catch (err) {
+      console.error('Failed to save profile changes:', err)
+    }
   }
 
   function handleCancel() {
-    setEditData({ fullname: profile?.fullname ?? '' })
     setIsEditing(false)
   }
 
@@ -171,12 +203,21 @@ export function ProfileView() {
                 {initials}
               </div>
             )}
-            <button
-              className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+            <Label
+              htmlFor="avatar-upload"
+              className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground cursor-pointer"
               aria-label="Upload avatar"
             >
-              <Camera className="h-3.5 w-3.5" />
-            </button>
+              {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/jpeg, image/png, image/gif, image/webp"
+                className="hidden"
+                disabled={uploadingImage}
+                onChange={handleImageUpload}
+              />
+            </Label>
           </div>
 
           {/* Info */}
@@ -185,7 +226,7 @@ export function ProfileView() {
               className="text-xl font-bold tracking-tight"
               style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
             >
-              {isEditing ? editData.fullname || profile.fullname : profile.fullname}
+              {isEditing ? `${editData.firstname} ${editData.lastname}`.trim() || profile.fullname : profile.fullname}
             </h1>
             <p
               className="mt-0.5 text-sm font-medium"
@@ -248,21 +289,28 @@ export function ProfileView() {
         <div className="grid gap-5">
           <FieldRow
             icon={User}
-            label="Full Name"
-            value={isEditing ? editData.fullname : profile.fullname}
+            label="First Name"
+            value={isEditing ? editData.firstname : profile.firstname}
             isEditing={isEditing}
-            onChange={(v) => setEditData((p) => ({ ...p, fullname: v }))}
+            onChange={(v) => setEditData((p) => ({ ...p, firstname: v }))}
           />
           <FieldRow
             icon={User}
-            label="Username"
+            label="Last Name"
+            value={isEditing ? editData.lastname : profile.lastname}
+            isEditing={isEditing}
+            onChange={(v) => setEditData((p) => ({ ...p, lastname: v }))}
+          />
+          <FieldRow
+            icon={User}
+            label="Username (Read-only)"
             value={profile.username}
             isEditing={false}
           />
           {profile.email && (
             <FieldRow
               icon={Mail}
-              label="Email"
+              label="Email (Read-only)"
               value={profile.email}
               isEditing={false}
             />

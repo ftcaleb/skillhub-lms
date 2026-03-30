@@ -9,6 +9,7 @@ import { CourseDetailView } from '@/components/course-detail-view'
 import { Bell, Search, Menu, X, LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { MoodleCourse } from '@/lib/moodle/types'
+import { useProfile } from '@/components/profile-context'
 
 type ActiveView = 'dashboard' | 'certifications' | 'profile' | 'course-detail'
 
@@ -24,6 +25,7 @@ export default function DashboardPage() {
     const [selectedCourse, setSelectedCourse] = useState<MoodleCourse | null>(null)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
     const [loggingOut, setLoggingOut] = useState(false)
+    const { profile } = useProfile()
 
     const handleOpenCourse = (course: MoodleCourse) => {
         setSelectedCourse(course)
@@ -153,7 +155,7 @@ export default function DashboardPage() {
 
                         {/* Avatar */}
                         <button
-                            className="ml-2 flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition-all duration-200"
+                            className="ml-2 relative flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition-all duration-200 overflow-hidden"
                             style={{
                                 border: '2px solid var(--border-glow)',
                                 background: 'var(--bg-elevated)',
@@ -171,7 +173,16 @@ export default function DashboardPage() {
                             onClick={() => handleNavigate('profile')}
                             aria-label="User profile"
                         >
-                            SH
+                            {profile?.userpictureurl ? (
+                                <img 
+                                    src={profile.userpictureurl} 
+                                    alt="Profile" 
+                                    className="h-full w-full object-cover" 
+                                    onError={(e) => { e.currentTarget.style.display = 'none' }}
+                                />
+                            ) : (
+                                profile ? (`${profile.firstname?.[0] ?? ''}${profile.lastname?.[0] ?? ''}`.toUpperCase() || profile.username.substring(0, 2).toUpperCase()) : 'SH'
+                            )}
                         </button>
 
                         {/* Mobile hamburger */}

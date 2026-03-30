@@ -464,3 +464,21 @@ export interface MoodleSessionData {
     username: string
     email?: string            // stored at signup time
 }
+
+// ── User Management & Profile ───────────────────────────────────────────────
+
+export interface MoodleUsersByFieldUser {
+    id: number
+    username: string
+    firstname: string
+    lastname: string
+    profileimageurl?: string
+    profileimageurlsmall?: string
+}
+
+export interface MoodleUpdatePictureResponse {
+    success: boolean
+    profileimageurl: string
+    warnings: MoodleWarning[]
+}
+
