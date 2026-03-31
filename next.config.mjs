@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: '143.110.154.83',
+      },
+    ],
+  },
   async rewrites() {
     return [
       {
