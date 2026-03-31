@@ -175,7 +175,7 @@ export default function DashboardPage() {
                         >
                             {profile?.userpictureurl ? (
                                 <img 
-                                    src={profile.userpictureurl} 
+                                    src={`/api/courses/file?url=${encodeURIComponent(profile.userpictureurl)}`} 
                                     alt="Profile" 
                                     className="h-full w-full object-cover" 
                                     onError={(e) => { e.currentTarget.style.display = 'none' }}

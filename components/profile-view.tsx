@@ -179,7 +179,7 @@ export function ProfileView() {
             {profile.userpictureurl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={profile.userpictureurl}
+                src={`/api/courses/file?url=${encodeURIComponent(profile.userpictureurl)}`}
                 alt={profile.fullname}
                 className="h-20 w-20 rounded-full object-cover"
                 style={{
