@@ -9,7 +9,7 @@ import { SESSION_COOKIE_NAME } from '@/lib/moodle/session'
  * Token validity is NOT re-checked on every request (that would add a Moodle
  * round-trip per page load). The downstream API routes validate the token as needed.
  */
-export default function proxy(request: NextRequest) {
+export default function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
 
     // Always allow public paths through
