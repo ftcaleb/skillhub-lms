@@ -141,8 +141,7 @@ function LabelModule({ mod }: { mod: HydratedMoodleModule }) {
         <div className="rounded-lg px-4 py-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
             <SanitizedHTML
                 html={content}
-                className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed [&_a]:underline [&_p]:mb-2"
-                style={{ color: 'var(--text-secondary)' }}
+                className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed text-[var(--text-secondary)] [&_a]:underline [&_p]:mb-2"
             />
         </div>
     )
@@ -389,8 +388,7 @@ function PageModule({ mod, courseId, onCompletionUpdated }: { mod: HydratedMoodl
             <div className="px-8 py-8">
                 <SanitizedHTML
                     html={content}
-                    className="moodle-content prose prose-invert max-w-none [&_h1]:text-4xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-6 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:mt-5 [&_h4]:mb-2 [&_p]:mb-5 [&_p]:leading-7 [&_p]:text-sm [&_ul]:mb-6 [&_ul]:list-disc [&_ul]:pl-8 [&_ul]:space-y-2 [&_ol]:mb-6 [&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:space-y-2 [&_li]:text-sm [&_li]:leading-6 [&_a]:underline [&_a]:transition-colors [&_strong]:font-semibold [&_em]:italic [&_code]:px-2.5 [&_code]:py-1.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_pre]:p-5 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-sm [&_blockquote]:border-l-4 [&_blockquote]:pl-5 [&_blockquote]:py-3 [&_blockquote]:italic [&_blockquote]:rounded-r [&_table]:w-full [&_table]:border-collapse [&_table]:my-6 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold [&_td]:px-4 [&_td]:py-3 [&_td]:text-sm [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto [&_img]:my-6 [&_img]:shadow-md [&_.video-embed]:w-full [&_.video-embed]:my-6 [&_.video-embed]:flex [&_.video-embed]:justify-center [&_iframe]:w-full [&_iframe]:rounded-lg [&_iframe]:aspect-video [&_video]:rounded-lg [&_video]:max-w-full [&_video]:my-6"
-                    style={{ color: 'var(--text-secondary)' }}
+                    className="moodle-content prose prose-invert max-w-none text-[var(--text-secondary)] [&_h1]:text-4xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-6 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:mt-5 [&_h4]:mb-2 [&_p]:mb-5 [&_p]:leading-7 [&_p]:text-sm [&_ul]:mb-6 [&_ul]:list-disc [&_ul]:pl-8 [&_ul]:space-y-2 [&_ol]:mb-6 [&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:space-y-2 [&_li]:text-sm [&_li]:leading-6 [&_a]:underline [&_a]:transition-colors [&_strong]:font-semibold [&_em]:italic [&_code]:px-2.5 [&_code]:py-1.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_pre]:p-5 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-sm [&_blockquote]:border-l-4 [&_blockquote]:pl-5 [&_blockquote]:py-3 [&_blockquote]:italic [&_blockquote]:rounded-r [&_table]:w-full [&_table]:border-collapse [&_table]:my-6 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold [&_td]:px-4 [&_td]:py-3 [&_td]:text-sm [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto [&_img]:my-6 [&_img]:shadow-md [&_.video-embed]:w-full [&_.video-embed]:my-6 [&_.video-embed]:flex [&_.video-embed]:justify-center [&_iframe]:w-full [&_iframe]:rounded-lg [&_iframe]:aspect-video [&_video]:rounded-lg [&_video]:max-w-full [&_video]:my-6"
                 />
 
                 <CompletionButton

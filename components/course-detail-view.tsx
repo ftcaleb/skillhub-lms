@@ -210,9 +210,8 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
               <div className="mt-2 max-w-xl">
                 <SanitizedHTML
                   html={course.summary}
-                  className="text-xs leading-relaxed [&_p]:mb-1 [&_a]:underline"
-                  style={{ color: 'var(--text-secondary)' }}
-                  stripImages
+                  className="text-xs leading-relaxed text-[var(--text-secondary)] [&_p]:mb-1 [&_a]:underline"
+                  stripImages={true}
                 />
               </div>
             )}

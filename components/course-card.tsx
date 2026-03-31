@@ -161,14 +161,8 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
             <div className="mt-1.5">
               <SanitizedHTML
                 html={course.summary}
-                className="line-clamp-2 [&_*]:text-inherit [&_p]:m-0"
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: '0.875rem',
-                  color: 'var(--text-secondary)',
-                  lineHeight: 1.5,
-                }}
-                stripImages
+                className="line-clamp-2 [&_*]:text-inherit [&_p]:m-0 font-sans text-sm text-[var(--text-secondary)] leading-normal"
+                stripImages={true}
               />
             </div>
           )}
