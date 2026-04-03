@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { SanitizedHTML } from '@/components/sanitized-html'
 import { MoodleModuleRenderer } from '@/components/moodle-module-renderer'
+import { CourseSidebar } from '@/components/course/course-sidebar'
 import type { MoodleCourse, HydratedMoodleSection, HydratedMoodleModule } from '@/lib/moodle/types'
 
 interface CourseDetailViewProps {
@@ -72,11 +73,11 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set())
   const [activeModuleId, setActiveModuleId] = useState<number | null>(null)
 
-  const fetchContents = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const fetchContents = useCallback(async (background = false) => {
+    if (background !== true) setLoading(true)
+    if (background !== true) setError(null)
     try {
-      const res = await fetch(`/api/courses/${course.id}/hydrate`)
+      const res = await fetch(`/api/courses/${course.id}/hydrate?_t=${Date.now()}`, { cache: 'no-store' })
       if (res.status === 401) {
         router.push('/login')
         return
@@ -87,11 +88,11 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
       const sectionsData = data.sections ?? []
       setSections(sectionsData)
       const allIds = sectionsData.map((s: HydratedMoodleSection) => s.id)
-      setExpandedSections(new Set(allIds))
+      setExpandedSections((prev) => prev.size === 0 ? new Set(allIds) : prev)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error.')
+      if (background !== true) setError(err instanceof Error ? err.message : 'Unknown error.')
     } finally {
-      setLoading(false)
+      if (background !== true) setLoading(false)
     }
   }, [course.id, router])
 
@@ -158,8 +159,16 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
   const visibleSections = sections
 
   return (
-    <div className="flex flex-col gap-0">
-      {/* Course header */}
+    <div className="flex flex-row gap-0 min-h-screen">
+      <CourseSidebar
+        sections={sections}
+        activeModuleId={activeModuleId}
+        expandedSections={expandedSections}
+        onToggleSection={toggleSection}
+        onModuleClick={navigateToModule}
+      />
+      <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-0">
+        {/* Course header */}
       <motion.div
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -305,7 +314,7 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
               <p className="text-sm font-medium text-foreground">Failed to load content</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-xs">{error}</p>
             </div>
-            <Button variant="outline" size="sm" onClick={fetchContents} className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => fetchContents()} className="gap-2">
               <RefreshCw className="h-3.5 w-3.5" />
               Retry
             </Button>
@@ -443,7 +452,7 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                                         setActiveModuleId(mod.id)
                                     }}
                                   >
-                                    <MoodleModuleRenderer module={mod} courseId={course.id} onCompletionUpdated={fetchContents} />
+                                    <MoodleModuleRenderer module={mod} courseId={course.id} onCompletionUpdated={() => fetchContents(true)} />
                                   </div>
                                 </div>
                               ))}
@@ -495,6 +504,7 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
             </Button>
           </motion.div>
         )}
+      </div>
       </div>
     </div>
   )

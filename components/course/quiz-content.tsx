@@ -29,6 +29,7 @@ interface QuizContentProps {
     maxAttempts?: number  // 0 = unlimited
     gradePass?: number
     onBack?: () => void
+    onCompletionUpdated?: () => void
 }
 
 type QuizPhase =
@@ -193,6 +194,7 @@ export function QuizContent({
     maxAttempts = 0,
     gradePass = 0,
     onBack,
+    onCompletionUpdated,
 }: QuizContentProps) {
     const [state, setState] = useState<QuizPhase>({ phase: 'idle' })
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -473,6 +475,11 @@ export function QuizContent({
                     review: null
                 })
             }
+
+            // Moodle marks quiz complete automatically server-side after
+            // finishattempt=1. Notify the parent to re-fetch completion data
+            // so the sidebar and progress bar update immediately.
+            onCompletionUpdated?.()
         } catch (err) {
             setState({ phase: 'error', message: err instanceof Error ? err.message : 'Unknown error' })
         }

@@ -147,11 +147,7 @@ export async function GET(
             sections: hydratedSections,
         }
 
-        return NextResponse.json(hydratedCourse, {
-            headers: {
-                'Cache-Control': 'public, max-age=300, stale-while-revalidate=600', // 5-min SWR
-            },
-        })
+        return NextResponse.json(hydratedCourse)
     } catch (error: unknown) {
         console.error('COURSE HYDRATION ERROR:')
         console.error(error)

@@ -542,7 +542,7 @@ function VideoModule({ mod }: { mod: HydratedMoodleModule }) {
  * Displays quiz metadata (intro, time limit, max attempts).
  * User clicks "Start Quiz" to begin the attempt in-app using QuizContent.
  */
-function QuizModule({ mod, courseId }: { mod: HydratedMoodleModule; courseId: number }) {
+function QuizModule({ mod, courseId, onCompletionUpdated }: { mod: HydratedMoodleModule; courseId: number; onCompletionUpdated?: () => void }) {
     const [showQuiz, setShowQuiz] = useState(false)
     const quiz = mod.quizDetail
 
@@ -568,6 +568,7 @@ function QuizModule({ mod, courseId }: { mod: HydratedMoodleModule; courseId: nu
                         timelimit={quiz.timelimit ?? 0}
                         maxAttempts={quiz.attempts ?? 0}
                         onBack={() => setShowQuiz(false)}
+                        onCompletionUpdated={onCompletionUpdated}
                     />
                 </div>
             </div>
@@ -683,7 +684,7 @@ export function MoodleModuleRenderer({ module: mod, courseId, onCompletionUpdate
         case 'video':
             return <VideoModule mod={mod} />
         case 'quiz':
-            return <QuizModule mod={mod} courseId={courseId} />
+            return <QuizModule mod={mod} courseId={courseId} onCompletionUpdated={onCompletionUpdated} />
         default:
             return (
                 <div className="border p-4 rounded bg-secondary">
