@@ -408,6 +408,19 @@ export interface MoodleActivitiesCompletionStatus {
 }
 
 /**
+ * Response from core_completion_get_course_completion_status.
+ */
+export interface MoodleCourseCompletionStatus {
+    completionstatus: {
+        completed: boolean
+        aggregation: number
+        timecompleted?: number
+        completions?: any[]
+    }
+    warnings: MoodleWarning[]
+}
+
+/**
  * Response from mod_quiz_process_attempt.
  * Indicates the attempt state after submitting answers.
  */

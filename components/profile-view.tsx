@@ -35,6 +35,9 @@ export function ProfileView() {
   const [editData, setEditData] = useState<EditableFields>({ firstname: '', lastname: '' })
   const [loggingOut, setLoggingOut] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [completionChecked, setCompletionChecked] = useState(false)
+  const [hasCompletedCourse, setHasCompletedCourse] = useState(false)
+  const [completionDate, setCompletionDate] = useState<string | null>(null)
   
   // Sync edit data when profile is loaded or edit mode turns on
   useEffect(() => {
@@ -42,6 +45,22 @@ export function ProfileView() {
       setEditData({ firstname: profile.firstname, lastname: profile.lastname })
     }
   }, [profile, isEditing])
+
+  // Fetch course completion data
+  useEffect(() => {
+    if (profile?.userid) {
+      fetch(`/api/user/completion?userId=${profile.userid}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.hasCompletedAnyCourse) {
+                setHasCompletedCourse(true)
+                setCompletionDate(data.completedAt)
+            }
+        })
+        .catch(err => console.error("Failed to fetch completion:", err))
+        .finally(() => setCompletionChecked(true))
+    }
+  }, [profile?.userid])
 
   async function handleLogout() {
     setLoggingOut(true)
@@ -373,7 +392,13 @@ export function ProfileView() {
           milestones={[
             { title: 'Joined the platform', date: 'Account created', completed: true },
             { title: 'First course enrolled', date: 'Via Moodle enrolment', completed: true },
-            { title: 'First course completed', date: 'Pending completion', completed: false },
+            { 
+              title: 'First course completed', 
+              date: !completionChecked 
+                ? 'Checking...' 
+                : (hasCompletedCourse ? (completionDate || 'Completed') : 'Pending completion'), 
+              completed: hasCompletedCourse 
+            },
           ]}
         />
       </motion.section>

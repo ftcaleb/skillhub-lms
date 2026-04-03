@@ -29,6 +29,7 @@ import type {
     MoodleActivitiesCompletionStatus,
     MoodleUsersByFieldUser,
     MoodleUpdatePictureResponse,
+    MoodleCourseCompletionStatus,
 } from './types'
 
 class MoodleService {
@@ -412,6 +413,21 @@ class MoodleService {
         return this.fetchWS<MoodleActivitiesCompletionStatus>(
             token,
             'core_completion_get_activities_completion_status',
+            { courseid: courseId, userid: userId },
+        )
+    }
+
+    /**
+     * Get overall completion status of a course.
+     */
+    async getCourseCompletionStatus(
+        token: string,
+        courseId: number,
+        userId: number,
+    ): Promise<MoodleCourseCompletionStatus> {
+        return this.fetchWS<MoodleCourseCompletionStatus>(
+            token,
+            'core_completion_get_course_completion_status',
             { courseid: courseId, userid: userId },
         )
     }
