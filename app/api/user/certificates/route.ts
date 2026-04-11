@@ -11,21 +11,15 @@ export async function GET(request: NextRequest) {
     try {
         const session = decodeSession(cookie.value)
         if (!session) return NextResponse.json({ error: 'Invalid session.' }, { status: 401 })
-        
+
         const adminToken = process.env.MOODLE_ADMIN_TOKEN!
 
         const courses = await moodleService.getUserCourses(session.token, session.userId)
-        const courseMap = new Map(courses.map(c => [c.id, c.fullname]))
 
-        // Get customcert instances so we know which course each cert belongs to
         const allCertInstances = await Promise.all(
             courses.map(async (course) => {
                 try {
-                    const contents = await moodleService.fetchWS(
-                        session.token,
-                        'core_course_get_contents',
-                        { courseid: course.id }
-                    ) as Array<{ modules: Array<{ id: number; modname: string; instance: number; name: string }> }>
+                    const contents = await moodleService.getCourseContents(session.token, course.id)
                     return contents
                         .flatMap(s => s.modules)
                         .filter(m => m.modname === 'customcert')
@@ -41,7 +35,7 @@ export async function GET(request: NextRequest) {
         const result = await moodleService.getIssuedCertificates(adminToken, session.userId)
         const issues = Array.isArray(result) ? result : (result?.issues ?? [])
 
-        const certificates = issues.map((item) => {
+        const certificates = (issues as any[]).map((item) => {
             const courseInfo = certIdToCourse.get(item.issue.customcertid)
             return {
                 id: item.issue.id,
