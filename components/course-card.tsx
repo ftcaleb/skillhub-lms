@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Clock, Play, CheckCircle2, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CardSpotlight } from '@/components/ui/card-spotlight'
 import { CircularProgress } from '@/components/circular-progress'
 import { Button } from '@/components/ui/button'
 import { SanitizedHTML } from '@/components/sanitized-html'
@@ -79,6 +80,7 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
       tabIndex={onOpen ? 0 : undefined}
       onKeyDown={onOpen ? (e) => e.key === 'Enter' && onOpen() : undefined}
     >
+      <CardSpotlight className="flex flex-col flex-1 h-full">
       {/* Thumbnail / Color block */}
       <div className="relative aspect-[16/9] overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
         {showThumbnail ? (
@@ -237,6 +239,7 @@ export function MoodleCourseCard({ course, index, onOpen }: MoodleCourseCardProp
           </button>
         </div>
       </div>
+      </CardSpotlight>
     </motion.article>
   )
 }
