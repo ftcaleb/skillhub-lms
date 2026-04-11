@@ -22,13 +22,7 @@ export async function GET(
         return NextResponse.json({ error: 'Invalid certificate ID.' }, { status: 400 })
     }
 
-    const adminToken = process.env.MOODLE_ADMIN_TOKEN!
-
-    const result = await moodleService.fetchWS(adminToken, 'mod_customcert_list_issues', {
-        userid: session.userId,
-        includepdf: 1,
-    }) as Array<{ issue: { id: number; customcertid: number }; pdf: { content: string | null; name: string | null } }>
-
+    const result = await moodleService.getIssuedCertificatesWithPdf(session.userId)
     const match = result.find(r => r.issue.id === issueId)
 
     if (!match || !match.pdf.content) {

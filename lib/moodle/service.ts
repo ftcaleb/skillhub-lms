@@ -573,6 +573,13 @@ class MoodleService {
         return this.fetchWS(token, 'mod_customcert_list_issues', { userid: userId })
     }
 
+    async getIssuedCertificatesWithPdf(userId: number): Promise<Array<{ issue: { id: number; customcertid: number }; pdf: { content: string | null; name: string | null } }>> {
+        return this.fetchWS(this.adminToken, 'mod_customcert_list_issues', {
+            userid: userId,
+            includepdf: 1,
+        }) as Promise<Array<{ issue: { id: number; customcertid: number }; pdf: { content: string | null; name: string | null } }>>
+    }
+
     getAdminToken(): string {
         return this.adminToken
     }
