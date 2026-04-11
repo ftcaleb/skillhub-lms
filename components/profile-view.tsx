@@ -65,10 +65,10 @@ export function ProfileView() {
         // Joined the platform
         const joinDate = 
             profile.timecreated && profile.timecreated > 0 ? profile.timecreated :
-            (profileRes.value as any)?.timecreated && (profileRes.value as any)?.timecreated > 0 
-                ? (profileRes.value as any)?.timecreated :
-            (profileRes.value as any)?.firstaccess && (profileRes.value as any)?.firstaccess > 0 
-                ? (profileRes.value as any)?.firstaccess :
+            ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.timecreated && ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.timecreated > 0 
+                ? ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.timecreated :
+            ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.firstaccess && ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.firstaccess > 0 
+                ? ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.firstaccess :
             null
 
         if (joinDate) {
