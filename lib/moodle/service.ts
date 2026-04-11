@@ -30,6 +30,7 @@ import type {
     MoodleUsersByFieldUser,
     MoodleUpdatePictureResponse,
     MoodleCourseCompletionStatus,
+    MoodleIssueCertificateResponse,
 } from './types'
 
 class MoodleService {
@@ -556,6 +557,35 @@ class MoodleService {
             params,
         )
         return Array.isArray(result) ? result : []
+    }
+
+    /**
+     * Get issued certificates for a user in a course.
+     */
+    async getIssuedCertificates(token: string, userId: number): Promise<{
+        issues: Array<{
+            issue: { id: number; customcertid: number; code: string; timecreated: number }
+            user: { id: number; fullname: string }
+            template: { id: number; name: string }
+            pdf: { name: string | null; content: string | null; haspdf: boolean }
+        }>
+    }> {
+        return this.fetchWS(token, 'mod_customcert_list_issues', { userid: userId })
+    }
+
+    getAdminToken(): string {
+        return this.adminToken
+    }
+
+    async issueCertificate(
+        customcertid: number,
+        userid: number,
+    ): Promise<MoodleIssueCertificateResponse> {
+        return this.fetchWS<MoodleIssueCertificateResponse>(
+            this.adminToken,
+            'mod_customcert_issue_certificate',
+            { customcertid, userid },
+        )
     }
 }
 

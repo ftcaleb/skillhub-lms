@@ -81,6 +81,13 @@ export async function POST(
         // Call Moodle API
         await moodleService.updateActivityCompletionStatusManually(session.token, cmid, completed ? 1 : 0)
 
+        // Fire-and-forget cert issue — don't await, don't fail the request if this errors
+        if (completed) {
+            moodleService.issueCertificate(1, session.userId).catch(err =>
+                console.error('[completion] cert issue failed silently:', err)
+            )
+        }
+
         return NextResponse.json({ status: true })
     } catch (error) {
         console.error('UPDATE COMPLETION STATUS ERROR:', error)

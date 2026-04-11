@@ -12,6 +12,8 @@ import {
   AlertCircle,
   RefreshCw,
   CheckCircle2,
+  Award,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -51,7 +53,7 @@ function flattenModules(sections: HydratedMoodleSection[]): HydratedMoodleModule
   const modules: HydratedMoodleModule[] = []
   for (const section of sections) {
     for (const mod of section.modules) {
-      if (mod.modname !== 'label') {
+      if (mod.modname !== 'label' && mod.modname !== 'customcert') {
         modules.push(mod)
       }
     }
@@ -72,6 +74,12 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
   const [error, setError] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set())
   const [activeModuleId, setActiveModuleId] = useState<number | null>(null)
+  
+  // Certificate states
+  const [certIssuing, setCertIssuing] = useState(false)
+  const [certIssued, setCertIssued] = useState(false)
+  const [certDownloadUrl, setCertDownloadUrl] = useState<string | null>(null)
+  const [certError, setCertError] = useState<string | null>(null)
 
   const fetchContents = useCallback(async (background = false) => {
     if (background !== true) setLoading(true)
@@ -139,6 +147,36 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
       })
     }, 100)
   }
+
+  // When progressPercent becomes 100, auto-issue and get download URL
+  useEffect(() => {
+    if (progressPercent !== 100 || loading || error || totalModules === 0) return
+
+    const issueThenFetch = async () => {
+      setCertIssuing(true)
+      setCertError(null)
+      try {
+        // Issue (idempotent)
+        await fetch(`/api/courses/${course.id}/certificate/issue`, { method: 'POST' })
+        // Fetch the cert list to get the download URL
+        const res = await fetch('/api/user/certificates')
+        const data = await res.json()
+        const cert = (data.certificates ?? [])[0]
+        if (cert?.downloadUrl) {
+          setCertDownloadUrl(cert.downloadUrl)
+          setCertIssued(true)
+        } else {
+          setCertError('Certificate issued but download link not found. Try refreshing.')
+        }
+      } catch {
+        setCertError('Failed to generate certificate. Please try again.')
+      } finally {
+        setCertIssuing(false)
+      }
+    }
+
+    issueThenFetch()
+  }, [progressPercent, loading, error, totalModules, course.id])
 
   const handlePrev = () => {
     if (canGoPrev) navigateToModule(allModules[activeIndex - 1].id)
@@ -301,6 +339,78 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
         </motion.div>
       )}
 
+      {/* Course Complete + Download Certificate banner */}
+      {progressPercent === 100 && !loading && !error && totalModules > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="mt-4 rounded-xl px-5 py-5 flex items-center justify-between"
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid rgba(16, 185, 129, 0.2)',
+            boxShadow: 'var(--shadow-glow-sm)',
+          }}
+        >
+          <div className="flex items-center gap-4">
+            <div 
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+              style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)' }}
+            >
+              <Award className="h-6 w-6" style={{ color: 'var(--glow-green)' }} />
+            </div>
+            <div>
+              <h3 
+                className="text-lg font-bold" 
+                style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+              >
+                Course Complete 🎉
+              </h3>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                Your certificate is ready to download.
+              </p>
+              {certError && (
+                <div className="mt-2 flex items-center gap-2">
+                  <p className="text-xs text-red-400">{certError}</p>
+                  <button 
+                    onClick={() => {
+                        // Trigger the effect again by resetting error
+                        setCertError(null)
+                    }}
+                    className="text-xs underline"
+                    style={{ color: 'var(--glow-primary)' }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {certIssuing ? (
+              <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                <Loader2 className="h-4 w-4 animate-spin text-[var(--glow-primary)]" />
+                <span>Generating...</span>
+              </div>
+            ) : certDownloadUrl ? (
+              <a
+                href={certDownloadUrl}
+                download
+                className="px-5 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={{ 
+                  background: 'var(--glow-primary)', 
+                  color: 'white',
+                  boxShadow: '0 0 16px rgba(14, 165, 233, 0.3)'
+                }}
+              >
+                Download Certificate
+              </a>
+            ) : null}
+          </div>
+        </motion.div>
+      )}
+
       {/* Content */}
       <div className="mt-6">
         {loading && <SectionsSkeleton />}
@@ -337,13 +447,13 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
               const isExpanded = expandedSections.has(section.id)
               const visibleModules = section.modules ?? []
               const sectionCompleted = visibleModules
-                .filter((m) => m.modname !== 'label')
+                .filter((m) => m.modname !== 'label' && m.modname !== 'customcert')
                 .every(isModuleCompleted)
               const sectionCompletedCount = visibleModules
-                .filter((m) => m.modname !== 'label')
+                .filter((m) => m.modname !== 'label' && m.modname !== 'customcert')
                 .filter(isModuleCompleted).length
               const sectionTotalCount = visibleModules
-                .filter((m) => m.modname !== 'label').length
+                .filter((m) => m.modname !== 'label' && m.modname !== 'customcert').length
 
               return (
                 <motion.div

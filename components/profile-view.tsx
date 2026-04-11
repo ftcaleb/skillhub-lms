@@ -35,9 +35,11 @@ export function ProfileView() {
   const [editData, setEditData] = useState<EditableFields>({ firstname: '', lastname: '' })
   const [loggingOut, setLoggingOut] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
-  const [completionChecked, setCompletionChecked] = useState(false)
-  const [hasCompletedCourse, setHasCompletedCourse] = useState(false)
-  const [completionDate, setCompletionDate] = useState<string | null>(null)
+  const [milestones, setMilestones] = useState([
+    { title: 'Joined the platform', date: 'Checking...', completed: false },
+    { title: 'First course enrolled', date: 'Checking...', completed: false },
+    { title: 'First certificate earned', date: 'Checking...', completed: false },
+  ])
   
   // Sync edit data when profile is loaded or edit mode turns on
   useEffect(() => {
@@ -46,19 +48,49 @@ export function ProfileView() {
     }
   }, [profile, isEditing])
 
-  // Fetch course completion data
+  // Fetch milestone data
   useEffect(() => {
     if (profile?.userid) {
-      fetch(`/api/user/completion?userId=${profile.userid}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.hasCompletedAnyCourse) {
-                setHasCompletedCourse(true)
-                setCompletionDate(data.completedAt)
-            }
-        })
-        .catch(err => console.error("Failed to fetch completion:", err))
-        .finally(() => setCompletionChecked(true))
+      Promise.allSettled([
+        fetch(`/api/user/profile`).then(res => res.json()),
+        fetch(`/api/courses`).then(res => res.json()),
+        fetch(`/api/user/certificates`).then(res => res.json())
+      ]).then(([profileRes, coursesRes, certsRes]) => {
+        const nextMilestones = [
+            { title: 'Joined the platform', date: 'Checking...', completed: false },
+            { title: 'First course enrolled', date: 'Checking...', completed: false },
+            { title: 'First certificate earned', date: 'Checking...', completed: false },
+        ]
+
+        if (profileRes.status === 'fulfilled' && profileRes.value?.firstaccess) {
+            nextMilestones[0].date = new Date(profileRes.value.firstaccess * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+            nextMilestones[0].completed = true
+        } else {
+            nextMilestones[0].date = 'Date unknown'
+            nextMilestones[0].completed = true
+        }
+
+        if (coursesRes.status === 'fulfilled' && Array.isArray(coursesRes.value) && coursesRes.value.length > 0) {
+            const earliest = coursesRes.value.reduce((prev: any, curr: any) => prev.startdate < curr.startdate ? prev : curr)
+            nextMilestones[1].title = earliest.fullname || earliest.displayname
+            nextMilestones[1].date = new Date(earliest.startdate * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+            nextMilestones[1].completed = true
+        } else {
+            nextMilestones[1].title = 'Not yet enrolled'
+            nextMilestones[1].date = ''
+            nextMilestones[1].completed = false
+        }
+
+        if (certsRes.status === 'fulfilled' && certsRes.value?.certificates?.length > 0) {
+            const earliest = certsRes.value.certificates.reduce((prev: any, curr: any) => prev.timestamp < curr.timestamp ? prev : curr)
+            nextMilestones[2].date = `${earliest.courseName} • ${earliest.dateEarned}`
+            nextMilestones[2].completed = true
+        } else {
+            nextMilestones[2].date = 'Not yet earned'
+        }
+
+        setMilestones(nextMilestones)
+      })
     }
   }, [profile?.userid])
 
@@ -343,36 +375,6 @@ export function ProfileView() {
         </div>
       </motion.section>
 
-      {/* Moodle ID card */}
-      <motion.section
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.2 }}
-        className="rounded-xl p-6"
-        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
-      >
-        <h2
-          className="text-sm font-semibold mb-3"
-          style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
-        >
-          Moodle Identity
-        </h2>
-        <div
-          className="flex items-center gap-3 rounded-lg px-4 py-3"
-          style={{ background: 'var(--bg-elevated)' }}
-        >
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-lg"
-            style={{ background: 'rgba(14, 165, 233, 0.1)' }}
-          >
-            <span className="text-xs font-bold" style={{ color: 'var(--glow-primary)', fontFamily: "'JetBrains Mono', monospace" }}>#</span>
-          </div>
-          <div>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>User ID</p>
-            <p className="text-sm font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{profile.userid}</p>
-          </div>
-        </div>
-      </motion.section>
 
       {/* Career Milestones — static placeholder (Moodle badges/completions could populate this) */}
       <motion.section
@@ -388,19 +390,7 @@ export function ProfileView() {
         >
           Career Milestones
         </h2>
-        <MilestoneTimeline
-          milestones={[
-            { title: 'Joined the platform', date: 'Account created', completed: true },
-            { title: 'First course enrolled', date: 'Via Moodle enrolment', completed: true },
-            { 
-              title: 'First course completed', 
-              date: !completionChecked 
-                ? 'Checking...' 
-                : (hasCompletedCourse ? (completionDate || 'Completed') : 'Pending completion'), 
-              completed: hasCompletedCourse 
-            },
-          ]}
-        />
+        <MilestoneTimeline milestones={milestones} />
       </motion.section>
 
       {/* Account Actions */}

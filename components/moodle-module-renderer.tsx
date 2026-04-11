@@ -19,6 +19,7 @@ import {
     Clock,
     RefreshCw,
     Loader2,
+    Award,
 } from 'lucide-react'
 import { SanitizedHTML } from '@/components/sanitized-html'
 import { Button } from '@/components/ui/button'
@@ -685,6 +686,20 @@ export function MoodleModuleRenderer({ module: mod, courseId, onCompletionUpdate
             return <VideoModule mod={mod} />
         case 'quiz':
             return <QuizModule mod={mod} courseId={courseId} onCompletionUpdated={onCompletionUpdated} />
+        case 'customcert':
+            return (
+                <div className="rounded-xl p-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="flex items-center gap-3">
+                        <Award className="h-5 w-5" style={{ color: 'var(--glow-primary)' }} />
+                        <div>
+                            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{mod.name}</p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                                Certificate of completion — visit the Certifications tab to download.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )
         default:
             return (
                 <div className="border p-4 rounded bg-secondary">

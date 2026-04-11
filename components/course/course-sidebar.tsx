@@ -52,7 +52,7 @@ export function CourseSidebar({
     let completed = 0
     for (const section of sections) {
       for (const mod of section.modules) {
-        if (mod.modname === 'label') continue
+        if (mod.modname === 'label' || mod.modname === 'customcert') continue
         total++
         if (isModuleCompleted(mod)) completed++
       }
@@ -117,7 +117,7 @@ export function CourseSidebar({
 
       <nav className="flex-1 min-h-0 overflow-y-auto py-2 scrollbar-thin">
         {sections.map((section) => {
-          const visibleMods = section.modules.filter((m) => m.modname !== 'label')
+          const visibleMods = section.modules.filter((m) => m.modname !== 'label' && m.modname !== 'customcert')
           if (visibleMods.length === 0) return null
 
           const isExpanded = expandedSections.has(section.id)

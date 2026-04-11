@@ -24,36 +24,30 @@ export async function POST(
     { params }: { params: Promise<{ id: string; quizId: string; attemptId: string }> },
 ) {
     try {
-        // Validate session from httpOnly cookie
         const cookie = request.cookies.get(SESSION_COOKIE_NAME)
         if (!cookie?.value) {
             return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 })
         }
-
         const session = decodeSession(cookie.value)
         if (!session) {
             return NextResponse.json({ error: 'Invalid session.' }, { status: 401 })
         }
 
-        // Parse params
-        const { attemptId } = await params
+        const { id: courseId, attemptId } = await params
         const attempt_id = parseInt(attemptId, 10)
         if (isNaN(attempt_id)) {
             return NextResponse.json({ error: 'Invalid attempt ID.' }, { status: 400 })
         }
 
-        // Parse request body
         const body = (await request.json()) as {
             data?: Array<{ name: string; value: string }>
             finishattempt?: boolean
             timeup?: boolean
         }
-
         const answerData = body.data ?? []
         const finishattempt = body.finishattempt ? 1 : 0
         const timeup = body.timeup ? 1 : 0
 
-        // Call Moodle API
         const result = await moodleService.processAttempt(
             session.token,
             attempt_id,
@@ -62,9 +56,26 @@ export async function POST(
             timeup,
         )
 
+        // After final submission, trigger certificate issuance silently
+        if (finishattempt === 1) {
+            try {
+                console.log('Certificate block entered for user', session.userId)
+                await moodleService.issueCertificate(1, session.userId, session.token)
+                console.log('Certificate issued successfully for user', session.userId)
+            } catch (certErr) {
+                console.error('Certificate trigger failed:', certErr)
+            }
+        }
+
         return NextResponse.json(result)
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to process attempt.'
+
+        if (message.includes('Message was not sent')) {
+            console.warn('Ignored Moodle messaging error after successful submission:', message)
+            return NextResponse.json({ state: 'finished', warnings: [] })
+        }
+
         console.error('PROCESS ATTEMPT ERROR:', message)
         return NextResponse.json({ error: message }, { status: 500 })
     }

@@ -495,3 +495,8 @@ export interface MoodleUpdatePictureResponse {
     warnings: MoodleWarning[]
 }
 
+export interface MoodleIssueCertificateResponse {
+    issueid: number
+    created: boolean
+}
+
