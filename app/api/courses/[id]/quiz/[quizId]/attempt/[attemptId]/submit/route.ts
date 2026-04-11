@@ -60,7 +60,7 @@ export async function POST(
         if (finishattempt === 1) {
             try {
                 console.log('Certificate block entered for user', session.userId)
-                await moodleService.issueCertificate(1, session.userId, session.token)
+                await moodleService.issueCertificate(1, session.userId)
                 console.log('Certificate issued successfully for user', session.userId)
             } catch (certErr) {
                 console.error('Certificate trigger failed:', certErr)
