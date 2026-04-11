@@ -2,14 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { decodeSession, SESSION_COOKIE_NAME } from '@/lib/moodle/session'
 
 const MOODLE_URL = process.env.MOODLE_URL?.replace(/\/$/, '') ?? ''
+const MOODLE_HOST = (() => {
+    try { return new URL(MOODLE_URL).hostname } catch { return '' }
+})()
 
-/**
- * File proxy route: /api/courses/file?url=ENCODED_MOODLE_FILE_URL
- *
- * Moodle pluginfile.php URLs require a valid WS token appended as a query param.
- * Since the token lives in an HTTP-only cookie (invisible to client JS), we proxy
- * the file server-side: inject the token, fetch from Moodle, stream back.
- */
 export async function GET(request: NextRequest) {
     try {
         const cookie = request.cookies.get(SESSION_COOKIE_NAME)
@@ -29,27 +25,37 @@ export async function GET(request: NextRequest) {
 
         const fileUrl = decodeURIComponent(rawUrl)
 
-        // Safety check: only proxy URLs from the configured Moodle host
-        if (MOODLE_URL && !fileUrl.startsWith(MOODLE_URL)) {
+        // Safety check: only proxy URLs from the configured Moodle host (ignore port differences)
+        let parsedFileUrl: URL
+        try {
+            parsedFileUrl = new URL(fileUrl)
+        } catch {
+            return NextResponse.json({ error: 'Invalid URL.' }, { status: 400 })
+        }
+
+        if (MOODLE_HOST && parsedFileUrl.hostname !== MOODLE_HOST) {
             return NextResponse.json({ error: 'Forbidden: external URL.' }, { status: 403 })
         }
 
-        // Rewrite pluginfile.php → webservice/pluginfile.php for WS token auth.
-        // Moodle serves files via /pluginfile.php but requires the /webservice/
-        // prefix when using a web-service token instead of a browser session.
-        const authedUrl = new URL(fileUrl)
+        // Force the correct port from MOODLE_URL so the fetch always hits the right server
+        try {
+            const moodleUrlParsed = new URL(MOODLE_URL)
+            parsedFileUrl.port = moodleUrlParsed.port
+        } catch { /* ignore */ }
+
+        // Rewrite pluginfile.php → webservice/pluginfile.php for WS token auth
         if (
-            authedUrl.pathname.includes('/pluginfile.php') &&
-            !authedUrl.pathname.includes('/webservice/pluginfile.php')
+            parsedFileUrl.pathname.includes('/pluginfile.php') &&
+            !parsedFileUrl.pathname.includes('/webservice/pluginfile.php')
         ) {
-            authedUrl.pathname = authedUrl.pathname.replace(
+            parsedFileUrl.pathname = parsedFileUrl.pathname.replace(
                 '/pluginfile.php',
                 '/webservice/pluginfile.php',
             )
         }
-        authedUrl.searchParams.set('token', session.token)
+        parsedFileUrl.searchParams.set('token', session.token)
 
-        const upstream = await fetch(authedUrl.toString(), { cache: 'no-store' })
+        const upstream = await fetch(parsedFileUrl.toString(), { cache: 'no-store' })
         if (!upstream.ok) {
             return NextResponse.json(
                 { error: `Moodle returned HTTP ${upstream.status}` },
