@@ -11,6 +11,7 @@ export interface MoodleProfile {
   userpictureurl: string
   sitename: string
   email: string | null
+  timecreated: number | null
 }
 
 interface ProfileContextValue {

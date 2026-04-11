@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { Award, Shield, CalendarDays, ExternalLink, Loader2 } from "lucide-react"
+import { Award, Shield, CalendarDays, ExternalLink, Loader2, Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Certificate {
@@ -85,13 +85,19 @@ export function CertificationsView() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: 0.12 + index * 0.08 }}
                         className="group rounded-xl p-5 transition-all"
-                        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+                        style={{ 
+                          background: 'var(--bg-surface)', 
+                          border: '1px solid var(--border-subtle)',
+                          borderLeft: '3px solid #f59e0b',
+                        }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.borderColor = 'var(--border-glow)'
+                            e.currentTarget.style.borderLeftColor = '#f59e0b'
                             e.currentTarget.style.boxShadow = 'var(--shadow-glow-sm)'
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.borderColor = 'var(--border-subtle)'
+                            e.currentTarget.style.borderLeftColor = '#f59e0b'
                             e.currentTarget.style.boxShadow = 'none'
                         }}
                     >
@@ -134,9 +140,14 @@ export function CertificationsView() {
                                     <a
                                         href={cert.downloadUrl}
                                         download
-                                        className="flex items-center gap-1 text-xs font-medium transition-colors"
-                                        style={{ color: 'var(--glow-primary)' }}
+                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                        style={{ 
+                                          background: 'linear-gradient(135deg, var(--glow-primary), var(--glow-purple))',
+                                          color: 'white',
+                                          textDecoration: 'none',
+                                        }}
                                     >
+                                        <Download className="h-3.5 w-3.5" />
                                         Download Certificate
                                     </a>
                                 </div>

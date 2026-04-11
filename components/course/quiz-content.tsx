@@ -1125,7 +1125,9 @@ export function QuizContent({
                                 Question {currentQ.number} Answer
                             </p>
 
-                            {currentQ.options.map((option) => {
+                            {currentQ.options
+                                .filter(opt => !opt.label.toLowerCase().includes('clear my choice'))
+                                .map((option) => {
                                 const isSelected = selectedValue === option.value
 
                                 return (
@@ -1149,12 +1151,13 @@ export function QuizContent({
                             <AnimatePresence>
                                 {isAnswered && (
                                     <motion.button
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: 'auto' }}
-                                        exit={{ opacity: 0, height: 0 }}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.15 }}
                                         onClick={() => handleClearChoice(currentQ)}
-                                        className="text-xs font-medium py-2 transition-colors"
-                                        style={{ color: 'var(--quiz-text-muted)' }}
+                                        className="text-xs py-1 self-start hover:underline underline-offset-2 transition-colors"
+                                        style={{ color: 'var(--quiz-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
                                     >
                                         Clear my choice
                                     </motion.button>

@@ -267,6 +267,12 @@ export function parseQuestionHtml(
       }
       if (idx > 0) result.parsed = true
     }
+
+    // Filter out "clear choice" options that Moodle sometimes injects into the HTML
+    result.options = result.options.filter(opt =>
+      !opt.label.toLowerCase().includes('clear my choice') &&
+      !opt.label.toLowerCase().includes('clear choice')
+    )
   } catch {
     // If parsing fails, fall back to raw HTML
     result.parsed = false

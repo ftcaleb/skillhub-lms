@@ -16,6 +16,8 @@ import {
   Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Sparkles } from '@/components/ui/sparkles'
+import { MovingBorder } from '@/components/ui/moving-border'
 import { Button } from '@/components/ui/button'
 import { SanitizedHTML } from '@/components/sanitized-html'
 import { MoodleModuleRenderer } from '@/components/moodle-module-renderer'
@@ -357,7 +359,9 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
               style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)' }}
             >
-              <Award className="h-6 w-6" style={{ color: 'var(--glow-green)' }} />
+              <Sparkles sparkleCount={6}>
+                <Award className="h-6 w-6" style={{ color: 'var(--glow-green)' }} />
+              </Sparkles>
             </div>
             <div>
               <h3 
@@ -394,18 +398,18 @@ export function CourseDetailView({ course, onBack }: CourseDetailViewProps) {
                 <span>Generating...</span>
               </div>
             ) : certDownloadUrl ? (
-              <a
+              <MovingBorder
+                as="a"
                 href={certDownloadUrl}
                 download
-                className="px-5 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
-                style={{ 
-                  background: 'var(--glow-primary)', 
-                  color: 'white',
-                  boxShadow: '0 0 16px rgba(14, 165, 233, 0.3)'
-                }}
+                duration={1800}
+                containerClassName="rounded-lg"
+                borderClassName="bg-[radial-gradient(circle,#0ea5e9,#10b981,transparent_70%)]"
+                className="px-5 py-2 text-sm font-semibold text-white"
+                style={{ background: 'var(--glow-primary)' }}
               >
                 Download Certificate
-              </a>
+              </MovingBorder>
             ) : null}
           </div>
         </motion.div>

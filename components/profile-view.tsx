@@ -35,10 +35,10 @@ export function ProfileView() {
   const [editData, setEditData] = useState<EditableFields>({ firstname: '', lastname: '' })
   const [loggingOut, setLoggingOut] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
-  const [milestones, setMilestones] = useState([
-    { title: 'Joined the platform', date: 'Checking...', completed: false },
-    { title: 'First course enrolled', date: 'Checking...', completed: false },
-    { title: 'First certificate earned', date: 'Checking...', completed: false },
+  const [milestones, setMilestones] = useState<any[]>([
+    { title: 'Joined the platform', date: null, completed: false },
+    { title: 'First course enrolled', date: null, completed: false },
+    { title: 'First certificate earned', date: null, completed: false },
   ])
   
   // Sync edit data when profile is loaded or edit mode turns on
@@ -57,17 +57,25 @@ export function ProfileView() {
         fetch(`/api/user/certificates`).then(res => res.json())
       ]).then(([profileRes, coursesRes, certsRes]) => {
         const nextMilestones = [
-            { title: 'Joined the platform', date: 'Checking...', completed: false },
-            { title: 'First course enrolled', date: 'Checking...', completed: false },
-            { title: 'First certificate earned', date: 'Checking...', completed: false },
+            { title: 'Joined the platform', date: null as string | null, completed: false },
+            { title: 'First course enrolled', date: null as string | null, completed: false },
+            { title: 'First certificate earned', date: null as string | null, completed: false },
         ]
 
-        if (profileRes.status === 'fulfilled' && profileRes.value?.firstaccess) {
-            nextMilestones[0].date = new Date(profileRes.value.firstaccess * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        // Joined the platform
+        const joinDate = 
+            profile.timecreated && profile.timecreated > 0 ? profile.timecreated :
+            (profileRes.value as any)?.timecreated && (profileRes.value as any)?.timecreated > 0 
+                ? (profileRes.value as any)?.timecreated :
+            (profileRes.value as any)?.firstaccess && (profileRes.value as any)?.firstaccess > 0 
+                ? (profileRes.value as any)?.firstaccess :
+            null
+
+        if (joinDate) {
+            nextMilestones[0].date = String(joinDate) // Store raw timestamp for formatting in render
             nextMilestones[0].completed = true
         } else {
-            nextMilestones[0].date = 'Date unknown'
-            nextMilestones[0].completed = true
+            nextMilestones[0].completed = true // Always completed since they're logged in
         }
 
         if (coursesRes.status === 'fulfilled' && Array.isArray(coursesRes.value) && coursesRes.value.length > 0) {
@@ -390,7 +398,16 @@ export function ProfileView() {
         >
           Career Milestones
         </h2>
-        <MilestoneTimeline milestones={milestones} />
+        <MilestoneTimeline 
+          milestones={milestones
+            .map(m => ({
+              ...m,
+              date: m.title === 'Joined the platform' && m.date && !isNaN(Number(m.date))
+                ? new Date(Number(m.date) * 1000).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+                : m.date ?? null
+            }))
+          } 
+        />
       </motion.section>
 
       {/* Account Actions */}
