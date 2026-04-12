@@ -8,6 +8,7 @@ import { Package, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { BackgroundBeams } from '@/components/ui/background-beams'
 
 export default function LoginPage() {
     const router = useRouter()
@@ -47,27 +48,14 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-dvh flex items-center justify-center px-4" style={{ background: 'var(--bg-base)' }}>
-            {/* Background glow — matching dashboard ambience */}
-            <div
-                className="pointer-events-none fixed inset-0 overflow-hidden"
-                aria-hidden="true"
-            >
-                <div
-                    className="absolute -top-40 left-1/2 -translate-x-1/2 h-96 w-96 rounded-full opacity-20 blur-3xl"
-                    style={{ background: 'radial-gradient(circle, var(--glow-primary), transparent)' }}
-                />
-                <div
-                    className="absolute bottom-0 right-0 h-80 w-80 rounded-full opacity-10 blur-3xl"
-                    style={{ background: 'radial-gradient(circle, var(--glow-purple), transparent)' }}
-                />
-            </div>
+        <div className="relative min-h-dvh flex items-center justify-center overflow-hidden px-4" style={{ background: 'var(--bg-base)' }}>
+            <BackgroundBeams />
 
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="relative w-full max-w-[400px]"
+                className="relative z-10 w-full max-w-[400px]"
             >
                 {/* Premium Card with glassmorphism */}
                 <div
