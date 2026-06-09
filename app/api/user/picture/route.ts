@@ -27,13 +27,13 @@ export async function POST(request: NextRequest) {
 
         // 1. Upload the file as a draft item to Moodle's upload.php using admin token
         const uploadFormData = new FormData()
-        uploadFormData.append('token', session.token)
+        uploadFormData.append('token', moodleService.getAdminToken())
         uploadFormData.append('component', 'user')
         uploadFormData.append('filearea', 'draft')
         uploadFormData.append('itemid', '0') // 0 generates a new draft item id
         uploadFormData.append('filepath', '/')
         uploadFormData.append('filename', file.name)
-        
+
         // Ensure perfect serialization by converting File to standard Blob
         const fileBuffer = await file.arrayBuffer()
         const blob = new Blob([fileBuffer], { type: file.type })
@@ -51,10 +51,10 @@ export async function POST(request: NextRequest) {
         }
 
         const uploadData = await uploadRes.json()
-        
+
         // Moodle can return an array or single object for uploads depending on the plugin
         const uploadResult = Array.isArray(uploadData) ? uploadData[0] : uploadData
-        
+
         if (uploadResult?.error || uploadResult?.exception) {
             console.error('\n--- MOODLE UPLOAD ERROR ---')
             console.error(JSON.stringify(uploadResult, null, 2))
