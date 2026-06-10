@@ -570,11 +570,11 @@ class MoodleService {
             pdf: { name: string | null; content: string | null; haspdf: boolean }
         }>
     }> {
-        return this.fetchWS(token, 'mod_customcert_list_issues', { userid: userId })
+        return this.fetchWS(token, 'local_skillhubcert_list_issues', { userid: userId })
     }
 
     async getIssuedCertificatesWithPdf(userId: number): Promise<Array<{ issue: { id: number; customcertid: number }; pdf: { content: string | null; name: string | null } }>> {
-        return this.fetchWS(this.adminToken, 'mod_customcert_list_issues', {
+        return this.fetchWS(this.adminToken, 'local_skillhubcert_list_issues', {
             userid: userId,
             includepdf: 1,
         }) as Promise<Array<{ issue: { id: number; customcertid: number }; pdf: { content: string | null; name: string | null } }>>
@@ -590,7 +590,7 @@ class MoodleService {
     ): Promise<MoodleIssueCertificateResponse> {
         return this.fetchWS<MoodleIssueCertificateResponse>(
             this.adminToken,
-            'mod_customcert_issue_certificate',
+            'local_skillhubcert_issue_certificate',
             { customcertid, userid },
         )
     }
