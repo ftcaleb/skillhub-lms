@@ -119,6 +119,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                     {/* RIGHT: Search, Bell, Avatar */}
                     <div className="flex items-center gap-2">
                         <button
+                            onClick={() => window.dispatchEvent(new CustomEvent('open-search'))}
                             className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
                             style={{ color: 'var(--text-muted)' }}
                             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-overlay)' }}

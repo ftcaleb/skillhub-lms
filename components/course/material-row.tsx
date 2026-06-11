@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { BookOpen, PlayCircle, HelpCircle, FileText, Link2, ChevronRight, Folder } from 'lucide-react'
 import { CompletionPill } from '@/components/course/completion-pill'
 import type { HydratedMoodleModule } from '@/lib/moodle/types'
+import { cn } from '@/lib/utils'
 
 interface MaterialRowProps {
     module: HydratedMoodleModule
@@ -69,15 +70,16 @@ export function MaterialRow({ module, courseId, isUpNext = false }: MaterialRowP
                 />
             </div>
 
-            {/* Module name — the link target */}
             <Link
                 href={`/dashboard/courses/${courseId}/materials/${module.id}`}
-                className="flex-1 min-w-0 text-sm font-medium truncate transition-colors"
+                className={cn(
+                    "flex-1 min-w-0 text-sm font-medium truncate transition-colors",
+                    isCompleted 
+                        ? "line-through text-[var(--text-muted)] decoration-[var(--text-muted)]" 
+                        : "no-underline text-[var(--text-primary)]"
+                )}
                 style={{
-                    color: isCompleted ? 'var(--text-muted)' : 'var(--text-primary)',
                     fontFamily: "'DM Sans', sans-serif",
-                    textDecoration: isCompleted ? 'line-through' : 'none',
-                    textDecorationColor: 'var(--text-muted)',
                 }}
                 prefetch={true}
             >
