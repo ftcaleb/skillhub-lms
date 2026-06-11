@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
         try {
             const adminToken = process.env.MOODLE_ADMIN_TOKEN!
             const users = await moodleService.getUsersByField(adminToken, 'id', [siteInfo.userid])
-            console.log('User record from Moodle:', JSON.stringify(users[0], null, 2))
             timecreated = (users[0] as any)?.firstaccess ?? (users[0] as any)?.timecreated ?? null
         } catch (err) {
             console.error('Failed to fetch user timecreated:', err)
