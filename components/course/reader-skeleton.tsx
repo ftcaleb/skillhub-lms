@@ -2,7 +2,7 @@
 
 export function ReaderSkeleton() {
     return (
-        <div className="mx-auto w-full max-w-[1280px] px-4 py-8 flex flex-col gap-6 min-h-[calc(100vh-6rem)] pb-12">
+        <div className="mx-auto w-full max-w-[1280px] px-8 sm:px-12 md:px-16 py-8 flex flex-col gap-6 min-h-[calc(100vh-6rem)] pb-12">
             {/* Nav bar skeleton */}
             <div className="flex items-center justify-between py-4">
                 <div className="skeleton h-8 w-20 rounded-lg" />

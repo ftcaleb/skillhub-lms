@@ -66,7 +66,7 @@ export function LevelCard({
             <button
                 onClick={locked ? undefined : onToggle}
                 disabled={locked}
-                className="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 sm:py-5 text-left transition-all"
+                className="w-full flex items-center gap-3 sm:gap-4 px-6 sm:px-8 py-5 sm:py-6 text-left transition-all"
                 style={{
                     background: 'transparent',
                     cursor: locked ? 'not-allowed' : 'pointer',
@@ -146,7 +146,7 @@ export function LevelCard({
                         className="overflow-hidden"
                     >
                         <div
-                            className="px-2 sm:px-4 pb-4 pt-1 flex flex-col gap-0.5"
+                            className="px-6 sm:px-8 pb-6 pt-3 flex flex-col gap-2"
                             style={{ borderTop: '1px solid var(--border-subtle)' }}
                         >
                             {navigableModules.map((mod) => (

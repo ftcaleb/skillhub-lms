@@ -202,7 +202,7 @@ export function CourseTrackView({ courseId }: CourseTrackViewProps) {
     let levelCounter = 0
 
     return (
-        <div className="mx-auto w-full max-w-[1280px] px-4 py-8 flex flex-col gap-6">
+        <div className="mx-auto w-full max-w-[1280px] px-8 sm:px-12 md:px-16 py-8 flex flex-col gap-6">
             {/* ── Hero Section ──────────────────────────────────────────────── */}
             <motion.div
                 initial={shouldReduceMotion ? false : { opacity: 0, y: -12 }}
@@ -387,7 +387,7 @@ export function CourseTrackView({ courseId }: CourseTrackViewProps) {
                     </p>
                 </div>
             ) : (
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-6">
                     {visibleSections.map((section, i) => {
                         levelCounter++
                         return (

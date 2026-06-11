@@ -152,7 +152,7 @@ export function MaterialReaderView({ courseId, cmid }: MaterialReaderViewProps) 
             initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="mx-auto w-full max-w-[1280px] px-4 py-8 flex flex-col gap-6 min-h-[calc(100vh-6rem)] pb-12"
+            className="mx-auto w-full max-w-[1280px] px-8 sm:px-12 md:px-16 py-8 flex flex-col gap-6 min-h-[calc(100vh-6rem)] pb-12"
         >
             {/* Top Navigation Row */}
             <ReaderNav
