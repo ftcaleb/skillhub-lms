@@ -573,11 +573,20 @@ class MoodleService {
         return this.fetchWS(token, 'local_skillhubcert_list_issues', { userid: userId })
     }
 
-    async getIssuedCertificatesWithPdf(userId: number): Promise<Array<{ issue: { id: number; customcertid: number }; pdf: { content: string | null; name: string | null } }>> {
-        return this.fetchWS(this.adminToken, 'local_skillhubcert_list_issues', {
+    async getIssuedCertificatesWithPdf(userId: number): Promise<Array<{
+        issue: { id: number; customcertid: number; code: string; timecreated: number }
+        pdf: { content: string | null; name: string | null; haspdf: boolean }
+    }>> {
+        const result = await this.fetchWS<{
+            issues: Array<{
+                issue: { id: number; customcertid: number; code: string; timecreated: number }
+                pdf: { content: string | null; name: string | null; haspdf: boolean }
+            }>
+        }>(this.adminToken, 'local_skillhubcert_list_issues', {
             userid: userId,
             includepdf: 1,
-        }) as Promise<Array<{ issue: { id: number; customcertid: number }; pdf: { content: string | null; name: string | null } }>>
+        })
+        return result?.issues ?? []
     }
 
     getAdminToken(): string {
