@@ -24,6 +24,22 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        // Validate against Moodle's password policy BEFORE calling Moodle,
+        // so users get a clean error without a round-trip to the server.
+        const passwordErrors: string[] = []
+        if (password.length < 8) passwordErrors.push('be at least 8 characters')
+        if (!/[A-Z]/.test(password)) passwordErrors.push('contain an upper case letter')
+        if (!/[a-z]/.test(password)) passwordErrors.push('contain a lower case letter')
+        if (!/[0-9]/.test(password)) passwordErrors.push('contain a number')
+        if (!/[^a-zA-Z0-9]/.test(password)) passwordErrors.push('contain a special character (e.g. *, -, #)')
+
+        if (passwordErrors.length > 0) {
+            return NextResponse.json(
+                { error: `Password must ${passwordErrors.join(', ')}.` },
+                { status: 400 },
+            )
+        }
+
         // Step 1: Create the user using the ADMIN token (users cannot self-create)
         await moodleService.createUser({
             username: username.trim().toLowerCase(),
@@ -50,7 +66,9 @@ export async function POST(request: NextRequest) {
         response.cookies.set(SESSION_COOKIE_NAME, sessionValue, SESSION_COOKIE_OPTIONS)
         return response
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'Signup failed.'
+        // Strip any HTML tags Moodle embeds in its error messages
+        const raw = error instanceof Error ? error.message : 'Signup failed.'
+        const message = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
         const status = message.includes('already exists') ? 409 : 400
         return NextResponse.json({ error: message }, { status })
     }

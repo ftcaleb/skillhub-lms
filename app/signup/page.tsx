@@ -30,6 +30,7 @@ function PasswordStrength({ password }: { password: string }) {
     const checks = [
         { label: '8+ characters', ok: password.length >= 8 },
         { label: 'Uppercase letter', ok: /[A-Z]/.test(password) },
+        { label: 'Lowercase letter', ok: /[a-z]/.test(password) },
         { label: 'Number', ok: /[0-9]/.test(password) },
         { label: 'Special character', ok: /[^A-Za-z0-9]/.test(password) },
     ]
@@ -60,7 +61,7 @@ function PasswordStrength({ password }: { password: string }) {
                                     ? 'oklch(0.6 0.25 30)'
                                     : passedCount <= 2
                                         ? 'oklch(0.75 0.2 65)'
-                                        : passedCount <= 3
+                                        : passedCount <= 4
                                             ? 'oklch(0.75 0.18 140)'
                                             : 'oklch(0.7 0.2 160)',
                         }}
@@ -96,8 +97,17 @@ export default function SignupPage() {
             setError('Please enter a valid email address.')
             return
         }
-        if (password.length < 8) {
-            setError('Password must be at least 8 characters.')
+
+        // Mirror Moodle's password policy so users get instant feedback
+        // (the API route enforces the same rules server-side).
+        const passwordProblems: string[] = []
+        if (password.length < 8) passwordProblems.push('be at least 8 characters')
+        if (!/[A-Z]/.test(password)) passwordProblems.push('contain an upper case letter')
+        if (!/[a-z]/.test(password)) passwordProblems.push('contain a lower case letter')
+        if (!/[0-9]/.test(password)) passwordProblems.push('contain a number')
+        if (!/[^A-Za-z0-9]/.test(password)) passwordProblems.push('contain a special character (e.g. *, -, #)')
+        if (passwordProblems.length > 0) {
+            setError(`Password must ${passwordProblems.join(', ')}.`)
             return
         }
 
