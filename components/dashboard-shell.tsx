@@ -6,6 +6,13 @@ import { Bell, Search, Menu, X, LogOut } from 'lucide-react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useProfile } from '@/components/profile-context'
+import dynamic from 'next/dynamic'
+
+const SearchCommand = dynamic(
+    () => import('@/components/search-command').then((mod) => mod.SearchCommand),
+    { ssr: false }
+)
+
 
 const navLinks = [
     { id: 'dashboard' as const, label: 'My Courses', href: '/dashboard/courses' },
@@ -248,6 +255,8 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                     {children}
                 </div>
             </main>
+            <SearchCommand />
         </div>
     )
 }
+

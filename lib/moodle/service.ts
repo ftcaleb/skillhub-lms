@@ -147,7 +147,6 @@ class MoodleService {
         )
         return Array.isArray(result) ? result : []
     }
-
     async getCourseContents(token: string, courseId: number): Promise<MoodleSection[]> {
         const result = await this.fetchWS<MoodleSection[]>(
             token,

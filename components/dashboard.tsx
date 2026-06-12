@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { Filter, BookOpen, AlertCircle, RefreshCw } from 'lucide-react'
+import { motion, useReducedMotion } from 'framer-motion'
+import { Filter, AlertCircle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MoodleCourseCard } from '@/components/course-card'
 import type { MoodleCourse } from '@/lib/moodle/types'
+import { useProfile } from '@/components/profile-context'
+import { GhostCourseCard } from '@/components/ghost-course-card'
 
 type FilterValue = 'all' | 'in-progress' | 'completed'
 
@@ -39,10 +41,14 @@ function CourseSkeleton() {
 
 export function Dashboard({ onOpenCourse }: DashboardProps) {
   const router = useRouter()
+  const { profile } = useProfile()
+  const reducedMotion = useReducedMotion() ?? false
   const [courses, setCourses] = useState<MoodleCourse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterValue>('all')
+
+  const firstname = profile?.firstname
 
   const fetchCourses = useCallback(async () => {
     setLoading(true)
@@ -107,6 +113,75 @@ export function Dashboard({ onOpenCourse }: DashboardProps) {
     )
   }
 
+  // ── LAUNCHPAD MODE ──────────────────────────────────────────────────────────
+  if (courses.length === 0) {
+    return (
+      <div className="flex flex-col gap-8">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <h1
+            style={{
+              fontFamily: "'Sora', sans-serif",
+              fontSize: '3rem',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.02em',
+              lineHeight: 1.1,
+            }}
+          >
+            My Courses
+          </h1>
+          <div className="mt-2 flex items-center gap-2">
+            <div
+              aria-hidden="true"
+              className={reducedMotion ? '' : 'animate-pulse'}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: 'var(--glow-accent)',
+                boxShadow: '0 0 10px var(--glow-accent)',
+              }}
+            />
+            <p
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '0.875rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              {firstname
+                ? `Welcome, ${firstname} — your courses are being prepared.`
+                : 'Welcome — your courses are being prepared.'}
+            </p>
+          </div>
+          <p
+            className="mt-1"
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
+            }}
+          >
+            They&apos;ll appear here automatically once your enrolment is confirmed.
+          </p>
+        </motion.div>
+
+        {/* Grid */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <GhostCourseCard key={i} index={i} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ── ENROLLED MODE ───────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-8">
       {/* Header */}
@@ -172,44 +247,28 @@ export function Dashboard({ onOpenCourse }: DashboardProps) {
       </motion.div>
 
       {/* Course grid */}
-      {courses.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center justify-center py-24 text-center gap-4"
-        >
-          <BookOpen className="h-10 w-10 text-muted-foreground/30" />
-          <div>
-            <p className="text-sm font-medium text-foreground">No enrolled courses</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Enrol in courses on Moodle to see them here.
-            </p>
-          </div>
-        </motion.div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredCourses.map((course, index) => (
-              <MoodleCourseCard
-                key={course.id}
-                course={course}
-                index={index}
-                onOpen={() => onOpenCourse(course)}
-              />
-            ))}
-          </div>
+      <>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredCourses.map((course, index) => (
+            <MoodleCourseCard
+              key={course.id}
+              course={course}
+              index={index}
+              onOpen={() => onOpenCourse(course)}
+            />
+          ))}
+        </div>
 
-          {filteredCourses.length === 0 && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-sm text-center text-muted-foreground py-12"
-            >
-              No courses match this filter.
-            </motion.p>
-          )}
-        </>
-      )}
+        {filteredCourses.length === 0 && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-sm text-center text-muted-foreground py-12"
+          >
+            No courses match this filter.
+          </motion.p>
+        )}
+      </>
     </div>
   )
 }

@@ -779,3 +779,10 @@ main > *:nth-child(4) { animation-delay: 0.2s; }
     opacity: 1;
   }
 }
+
+/* Ghost-card light sweep — slow, calm, unmistakably intentional */
+@keyframes ghost-sweep {
+  0%   { transform: translateX(-100%) skewX(-12deg); }
+  100% { transform: translateX(250%) skewX(-12deg); }
+}
+
