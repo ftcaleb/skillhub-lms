@@ -19,9 +19,10 @@ export function MovingBorder({
   className,
   containerClassName,
   borderClassName,
-  as: Component = "button",
+  as = "button",
   ...props
 }: MovingBorderProps) {
+  const Component = as as any;
   const pathRef = useRef<SVGRectElement>(null);
   const progress = useMotionValue<number>(0);
 

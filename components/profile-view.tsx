@@ -41,7 +41,7 @@ export function ProfileView() {
     { title: 'First course enrolled', date: null, completed: false },
     { title: 'First certificate earned', date: null, completed: false },
   ])
-  
+
   // Sync edit data when profile is loaded or edit mode turns on
   useEffect(() => {
     if (profile) {
@@ -64,11 +64,11 @@ export function ProfileView() {
         ]
 
         // Joined the platform
-        const joinDate = 
+        const joinDate =
             profile.timecreated && profile.timecreated > 0 ? profile.timecreated :
-            ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.timecreated && ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.timecreated > 0 
+            ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.timecreated && ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.timecreated > 0
                 ? ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.timecreated :
-            ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.firstaccess && ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.firstaccess > 0 
+            ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.firstaccess && ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.firstaccess > 0
                 ? ((profileRes.status === 'fulfilled' ? profileRes.value : null) as any)?.firstaccess :
             null
 
@@ -155,12 +155,12 @@ export function ProfileView() {
   async function handleSave() {
     if (!editData.firstname.trim() && !editData.lastname.trim()) return
     setIsEditing(false)
-    updateProfileOptimistically({ 
-      firstname: editData.firstname, 
+    updateProfileOptimistically({
+      firstname: editData.firstname,
       lastname: editData.lastname,
       fullname: `${editData.firstname} ${editData.lastname}`.trim()
     })
-    
+
     try {
       await fetch('/api/user/profile', {
         method: 'POST',
@@ -224,15 +224,15 @@ export function ProfileView() {
     <div className="relative flex flex-col gap-8 max-w-2xl mx-auto py-2">
       {/* Premium iOS-style background mesh blobs */}
       <div className="absolute inset-0 pointer-events-none -z-10 overflow-visible">
-        <div 
+        <div
           className="absolute -top-12 -left-20 w-72 h-72 rounded-full filter blur-[80px] opacity-25 mix-blend-screen"
           style={{ background: 'var(--glow-primary)' }}
         />
-        <div 
+        <div
           className="absolute -bottom-16 -right-20 w-80 h-80 rounded-full filter blur-[100px] opacity-20 mix-blend-screen"
           style={{ background: 'var(--glow-purple)' }}
         />
-        <div 
+        <div
           className="absolute top-1/2 left-1/3 -translate-y-1/2 w-64 h-64 rounded-full filter blur-[90px] opacity-15 mix-blend-screen"
           style={{ background: 'var(--glow-accent)' }}
         />
@@ -402,7 +402,6 @@ export function ProfileView() {
         </GlassCard>
       </motion.section>
 
-
       {/* Career Milestones — static placeholder (Moodle badges/completions could populate this) */}
       <motion.section
         initial={{ opacity: 0, y: 16 }}
@@ -416,15 +415,13 @@ export function ProfileView() {
           >
             Career Milestones
           </h2>
-          <MilestoneTimeline 
-            milestones={milestones
-              .map(m => ({
-                ...m,
-                date: m.title === 'Joined the platform' && m.date && !isNaN(Number(m.date))
-                  ? new Date(Number(m.date) * 1000).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-                  : m.date ?? null
-              }))
-            } 
+          <MilestoneTimeline
+            milestones={milestones.map(m => ({
+              ...m,
+              date: m.title === 'Joined the platform' && m.date && !isNaN(Number(m.date))
+                ? new Date(Number(m.date) * 1000).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+                : m.date ?? null
+            }))}
           />
         </GlassCard>
       </motion.section>
@@ -468,7 +465,7 @@ export function ProfileView() {
 }
 
 interface FieldRowProps {
-  icon: React.ElementType
+  icon: any
   label: string
   value: string
   isEditing: boolean
@@ -478,18 +475,15 @@ interface FieldRowProps {
 function FieldRow({ icon: Icon, label, value, isEditing, onChange }: FieldRowProps) {
   return (
     <div className="grid gap-2 pb-4 border-b border-white/5 last:border-0 last:pb-0">
-      <Label 
-        className="text-xs font-medium flex items-center gap-1.5"
-        style={{ color: 'rgba(126, 168, 208, 0.7)' }}
-      >
-        <Icon className="h-3.5 w-3.5" style={{ color: 'var(--glow-primary)' }} />
+      <Label className="text-xs font-medium flex items-center gap-1.5 text-sky-400/70">
+        <Icon className="h-3.5 w-3.5 text-sky-400" />
         {label}
       </Label>
       {isEditing && onChange ? (
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 bg-white/5 border-white/10 text-foreground text-sm rounded-xl focus:bg-white/10 focus:border-white/20 focus-visible:ring-1 focus-visible:ring-glow-primary transition-all"
+          className="h-10 bg-white/5 border-white/10 text-foreground text-sm rounded-xl focus:bg-white/10 focus:border-white/20 focus-visible:ring-1 transition-all"
         />
       ) : (
         <p className="text-sm text-foreground font-medium pl-5">{value || '—'}</p>
