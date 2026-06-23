@@ -16,6 +16,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import { MilestoneTimeline } from '@/components/milestone-timeline'
+import { GlassCard } from '@/components/glass-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -180,8 +181,8 @@ export function ProfileView() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-8 max-w-2xl mx-auto">
-        <div className="rounded-2xl p-8 animate-pulse" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+      <div className="flex flex-col gap-8 max-w-2xl mx-auto relative z-10">
+        <div className="glass rounded-2xl p-8 animate-pulse">
           <div className="flex items-center gap-5">
             <div className="h-20 w-20 rounded-full skeleton shrink-0" />
             <div className="flex-1 flex flex-col gap-2">
@@ -191,7 +192,7 @@ export function ProfileView() {
             </div>
           </div>
         </div>
-        <div className="rounded-xl p-6 animate-pulse" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+        <div className="glass rounded-xl p-6 animate-pulse">
           <div className="h-4 w-28 rounded skeleton mb-5" />
           <div className="flex flex-col gap-4">
             {[1, 2, 3].map((i) => <div key={i} className="h-6 rounded skeleton" />)}
@@ -203,12 +204,14 @@ export function ProfileView() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+      <div className="glass flex flex-col items-center justify-center max-w-md mx-auto py-16 px-8 gap-4 text-center rounded-2xl relative z-10">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 border border-destructive/20">
           <AlertCircle className="h-6 w-6 text-destructive" />
         </div>
-        <p className="text-sm font-medium text-foreground">Failed to load profile</p>
-        <p className="text-xs text-muted-foreground max-w-xs">{error}</p>
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-foreground">Failed to load profile</p>
+          <p className="text-xs text-muted-foreground max-w-xs">{error}</p>
+        </div>
       </div>
     )
   }
@@ -218,17 +221,33 @@ export function ProfileView() {
   const initials = `${profile.firstname?.[0] ?? ''}${profile.lastname?.[0] ?? ''}`.toUpperCase() || profile.username.substring(0, 2).toUpperCase()
 
   return (
-    <div className="flex flex-col gap-8 max-w-2xl mx-auto">
+    <div className="relative flex flex-col gap-8 max-w-2xl mx-auto py-2">
+      {/* Premium iOS-style background mesh blobs */}
+      <div className="absolute inset-0 pointer-events-none -z-10 overflow-visible">
+        <div 
+          className="absolute -top-12 -left-20 w-72 h-72 rounded-full filter blur-[80px] opacity-25 mix-blend-screen"
+          style={{ background: 'var(--glow-primary)' }}
+        />
+        <div 
+          className="absolute -bottom-16 -right-20 w-80 h-80 rounded-full filter blur-[100px] opacity-20 mix-blend-screen"
+          style={{ background: 'var(--glow-purple)' }}
+        />
+        <div 
+          className="absolute top-1/2 left-1/3 -translate-y-1/2 w-64 h-64 rounded-full filter blur-[90px] opacity-15 mix-blend-screen"
+          style={{ background: 'var(--glow-accent)' }}
+        />
+      </div>
+
       {/* Glassmorphism header card */}
       <motion.div
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="profile-hero-card relative overflow-hidden rounded-2xl p-6 sm:p-8"
+        className="glass relative overflow-hidden rounded-2xl p-6 sm:p-8"
       >
         {/* Decorative glow */}
         <div
-          className="absolute -top-20 -right-20 h-40 w-40 rounded-full opacity-20"
+          className="absolute -top-20 -right-20 h-40 w-40 rounded-full opacity-20 pointer-events-none"
           style={{ background: 'radial-gradient(circle, var(--glow-primary), transparent)' }}
         />
 
@@ -242,9 +261,9 @@ export function ProfileView() {
                 alt={profile.fullname}
                 className="h-20 w-20 rounded-full object-cover"
                 style={{
-                  border: '3px solid var(--border-glow)',
-                  background: 'var(--bg-elevated)',
-                  boxShadow: 'var(--shadow-glow-sm)',
+                  border: '3px solid rgba(255, 255, 255, 0.15)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.2)',
                 }}
                 onError={(e) => { e.currentTarget.style.display = 'none' }}
               />
@@ -252,10 +271,10 @@ export function ProfileView() {
               <div
                 className="flex h-20 w-20 items-center justify-center rounded-full text-xl font-bold"
                 style={{
-                  border: '3px solid var(--border-glow)',
-                  background: 'var(--bg-elevated)',
+                  border: '3px solid rgba(255, 255, 255, 0.15)',
+                  background: 'rgba(255, 255, 255, 0.05)',
                   color: 'var(--text-primary)',
-                  boxShadow: 'var(--shadow-glow-sm)',
+                  boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.2)',
                   fontFamily: "'Sora', sans-serif",
                 }}
               >
@@ -264,7 +283,7 @@ export function ProfileView() {
             )}
             <Label
               htmlFor="avatar-upload"
-              className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground cursor-pointer"
+              className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-[#0f1f35]/80 text-foreground transition-all hover:bg-primary hover:text-primary-foreground cursor-pointer shadow-md backdrop-blur-sm"
               aria-label="Upload avatar"
             >
               {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
@@ -301,7 +320,7 @@ export function ProfileView() {
             <Button
               variant="outline"
               size="sm"
-              className="border-border text-foreground hover:bg-secondary"
+              className="border-white/10 bg-white/5 hover:bg-white/10 text-foreground backdrop-blur-sm"
               onClick={() => setIsEditing(true)}
             >
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
@@ -320,7 +339,7 @@ export function ProfileView() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-border text-foreground hover:bg-secondary"
+                className="border-white/10 bg-white/5 hover:bg-white/10 text-foreground backdrop-blur-sm"
                 onClick={handleCancel}
               >
                 <X className="mr-1 h-3.5 w-3.5" />
@@ -336,51 +355,51 @@ export function ProfileView() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
-        className="rounded-xl p-6"
-        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
       >
-        <h2
-          className="text-sm font-semibold mb-5"
-          style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
-        >
-          Account Details
-        </h2>
-        <div className="grid gap-5">
-          <FieldRow
-            icon={User}
-            label="First Name"
-            value={isEditing ? editData.firstname : profile.firstname}
-            isEditing={isEditing}
-            onChange={(v) => setEditData((p) => ({ ...p, firstname: v }))}
-          />
-          <FieldRow
-            icon={User}
-            label="Last Name"
-            value={isEditing ? editData.lastname : profile.lastname}
-            isEditing={isEditing}
-            onChange={(v) => setEditData((p) => ({ ...p, lastname: v }))}
-          />
-          <FieldRow
-            icon={User}
-            label="Username (Read-only)"
-            value={profile.username}
-            isEditing={false}
-          />
-          {profile.email && (
+        <GlassCard size="lg" conicBorder={true} shouldAnimate={false}>
+          <h2
+            className="text-sm font-semibold mb-5"
+            style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+          >
+            Account Details
+          </h2>
+          <div className="grid gap-5">
             <FieldRow
-              icon={Mail}
-              label="Email (Read-only)"
-              value={profile.email}
+              icon={User}
+              label="First Name"
+              value={isEditing ? editData.firstname : profile.firstname}
+              isEditing={isEditing}
+              onChange={(v) => setEditData((p) => ({ ...p, firstname: v }))}
+            />
+            <FieldRow
+              icon={User}
+              label="Last Name"
+              value={isEditing ? editData.lastname : profile.lastname}
+              isEditing={isEditing}
+              onChange={(v) => setEditData((p) => ({ ...p, lastname: v }))}
+            />
+            <FieldRow
+              icon={User}
+              label="Username (Read-only)"
+              value={profile.username}
               isEditing={false}
             />
-          )}
-          <FieldRow
-            icon={Globe}
-            label="Learning Platform"
-            value={profile.sitename}
-            isEditing={false}
-          />
-        </div>
+            {profile.email && (
+              <FieldRow
+                icon={Mail}
+                label="Email (Read-only)"
+                value={profile.email}
+                isEditing={false}
+              />
+            )}
+            <FieldRow
+              icon={Globe}
+              label="Learning Platform"
+              value={profile.sitename}
+              isEditing={false}
+            />
+          </div>
+        </GlassCard>
       </motion.section>
 
 
@@ -389,25 +408,25 @@ export function ProfileView() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
-        className="rounded-xl p-6"
-        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
       >
-        <h2
-          className="text-sm font-semibold mb-5"
-          style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
-        >
-          Career Milestones
-        </h2>
-        <MilestoneTimeline 
-          milestones={milestones
-            .map(m => ({
-              ...m,
-              date: m.title === 'Joined the platform' && m.date && !isNaN(Number(m.date))
-                ? new Date(Number(m.date) * 1000).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-                : m.date ?? null
-            }))
-          } 
-        />
+        <GlassCard size="lg" shouldAnimate={false}>
+          <h2
+            className="text-sm font-semibold mb-5"
+            style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
+          >
+            Career Milestones
+          </h2>
+          <MilestoneTimeline 
+            milestones={milestones
+              .map(m => ({
+                ...m,
+                date: m.title === 'Joined the platform' && m.date && !isNaN(Number(m.date))
+                  ? new Date(Number(m.date) * 1000).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+                  : m.date ?? null
+              }))
+            } 
+          />
+        </GlassCard>
       </motion.section>
 
       {/* Account Actions */}
@@ -415,34 +434,34 @@ export function ProfileView() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.4 }}
-        className="rounded-xl p-6 mb-8"
-        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
       >
-        <h2
-          className="text-sm font-semibold mb-5"
-          style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
-        >
-          Account Actions
-        </h2>
-        <div className="flex flex-col gap-4">
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Signing out will end your current session on this device.
-          </p>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 px-4 py-6 rounded-lg text-sidebar-foreground transition-all hover:bg-destructive/10 hover:text-destructive group"
-            onClick={handleLogout}
-            disabled={loggingOut}
+        <GlassCard size="lg" className="mb-8" shouldAnimate={false}>
+          <h2
+            className="text-sm font-semibold mb-5"
+            style={{ fontFamily: "'Sora', sans-serif", color: 'var(--text-primary)' }}
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-destructive/10 group-hover:bg-destructive/20 transition-colors">
-              <LogOut className="h-5 w-5 text-destructive" />
-            </div>
-            <div className="flex flex-col items-start transition-opacity">
-              <span className="text-sm font-semibold">{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
-              <span className="text-[10px] opacity-70">End your current session</span>
-            </div>
-          </Button>
-        </div>
+            Account Actions
+          </h2>
+          <div className="flex flex-col gap-4">
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Signing out will end your current session on this device.
+            </p>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 px-4 py-6 rounded-lg text-sidebar-foreground transition-all hover:bg-destructive/10 hover:text-destructive group"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-destructive/10 group-hover:bg-destructive/20 transition-colors">
+                <LogOut className="h-5 w-5 text-destructive" />
+              </div>
+              <div className="flex flex-col items-start transition-opacity">
+                <span className="text-sm font-semibold">{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
+                <span className="text-[10px] opacity-70">End your current session</span>
+              </div>
+            </Button>
+          </div>
+        </GlassCard>
       </motion.section>
     </div>
   )
@@ -458,19 +477,22 @@ interface FieldRowProps {
 
 function FieldRow({ icon: Icon, label, value, isEditing, onChange }: FieldRowProps) {
   return (
-    <div className="grid gap-1.5">
-      <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-        <Icon className="h-3.5 w-3.5" />
+    <div className="grid gap-2 pb-4 border-b border-white/5 last:border-0 last:pb-0">
+      <Label 
+        className="text-xs font-medium flex items-center gap-1.5"
+        style={{ color: 'rgba(126, 168, 208, 0.7)' }}
+      >
+        <Icon className="h-3.5 w-3.5" style={{ color: 'var(--glow-primary)' }} />
         {label}
       </Label>
       {isEditing && onChange ? (
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-9 bg-input border-border text-foreground text-sm"
+          className="h-10 bg-white/5 border-white/10 text-foreground text-sm rounded-xl focus:bg-white/10 focus:border-white/20 focus-visible:ring-1 focus-visible:ring-glow-primary transition-all"
         />
       ) : (
-        <p className="text-sm text-card-foreground">{value || '—'}</p>
+        <p className="text-sm text-foreground font-medium pl-5">{value || '—'}</p>
       )}
     </div>
   )

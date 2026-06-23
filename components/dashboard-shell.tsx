@@ -13,6 +13,11 @@ const SearchCommand = dynamic(
     { ssr: false }
 )
 
+const ParticleField = dynamic(
+    () => import('@/components/three/ParticleField').then((mod) => mod.ParticleField),
+    { ssr: false }
+)
+
 
 const navLinks = [
     { id: 'dashboard' as const, label: 'My Courses', href: '/dashboard/courses' },
@@ -50,7 +55,8 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         : ''
 
     return (
-        <div className="flex flex-col min-h-dvh" style={{ background: 'var(--bg-base)' }}>
+        <div className="relative flex flex-col min-h-dvh overflow-hidden" style={{ background: 'var(--bg-base)' }}>
+            <ParticleField className="pointer-events-none absolute inset-0 z-0 opacity-60" />
             {/* ── Premium Floating Navbar ─────────────────────────────────── */}
             <header
                 className="sticky top-0 z-50 w-full"
