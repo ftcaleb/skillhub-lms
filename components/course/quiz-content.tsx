@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     ChevronRight,
@@ -67,19 +68,35 @@ type QuizPhase =
     | { phase: 'review_screen'; review: MoodleAttemptReviewResponse }
     | { phase: 'error'; message: string }
 
-// ─── Timer Component ──────────────────────────────────────────────────────────
+// ─── Timer ────────────────────────────────────────────────────────────────────
 
-function QuizTimer({ timelimit, timeStart }: { timelimit: number; timeStart: number }) {
+interface TimerView {
+    /** True when the quiz has no time limit. */
+    unlimited: boolean
+    /** Pre-formatted display string ("Unlimited", "12:04", "1:02:30"). */
+    label: string
+    /** True once less than 20% of the allotted time remains. */
+    isLow: boolean
+}
+
+/**
+ * Single ticker shared by every timer slot in the UI.
+ *
+ * The runner shows the clock inline in the question header when it is narrow
+ * and in the side rail when it is wide. Both read from this one hook so we
+ * never run two intervals, and the two readouts can never drift apart.
+ */
+function useQuizTimer(timelimit: number, timeStart: number): TimerView {
     const [remaining, setRemaining] = useState(timelimit)
 
     useEffect(() => {
         if (timelimit <= 0) return
-        const elapsed = Math.floor(Date.now() / 1000) - timeStart
-        setRemaining(Math.max(0, timelimit - elapsed))
+
+        const read = () => Math.max(0, timelimit - (Math.floor(Date.now() / 1000) - timeStart))
+        setRemaining(read())
 
         const interval = setInterval(() => {
-            const e = Math.floor(Date.now() / 1000) - timeStart
-            const r = Math.max(0, timelimit - e)
+            const r = read()
             setRemaining(r)
             if (r <= 0) clearInterval(interval)
         }, 1000)
@@ -88,35 +105,20 @@ function QuizTimer({ timelimit, timeStart }: { timelimit: number; timeStart: num
     }, [timelimit, timeStart])
 
     if (timelimit <= 0) {
-        return (
-            <div className="text-center">
-                <p className="quiz-meta-label mb-1">TIME REMAINING</p>
-                <p className="text-2xl font-bold font-mono" style={{ color: 'var(--quiz-text-primary)' }}>
-                    Unlimited
-                </p>
-            </div>
-        )
+        return { unlimited: true, label: 'Unlimited', isLow: false }
     }
 
     const hours = Math.floor(remaining / 3600)
     const minutes = Math.floor((remaining % 3600) / 60)
     const seconds = remaining % 60
-    const isLow = remaining < timelimit * 0.2
-    const timeStr = hours > 0
-        ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-        : `${minutes}:${String(seconds).padStart(2, '0')}`
 
-    return (
-        <div className="text-center" aria-live="polite">
-            <p className="quiz-meta-label mb-1">TIME REMAINING</p>
-            <p className={cn(
-                'text-2xl font-bold font-mono tabular-nums',
-                isLow ? 'timer-warning' : '',
-            )} style={{ color: isLow ? undefined : 'var(--quiz-text-primary)' }}>
-                {timeStr}
-            </p>
-        </div>
-    )
+    return {
+        unlimited: false,
+        label: hours > 0
+            ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+            : `${minutes}:${String(seconds).padStart(2, '0')}`,
+        isLow: remaining < timelimit * 0.2,
+    }
 }
 
 // ─── Confirmation Modal ───────────────────────────────────────────────────────
@@ -134,15 +136,38 @@ function SubmitModal({
     answeredCount: number
     totalCount: number
 }) {
-    if (!open) return null
-    return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-2xl">
+    // Close on Escape while the dialog is open.
+    useEffect(() => {
+        if (!open) return
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose()
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [open, onClose])
+
+    if (!open || typeof document === 'undefined') return null
+
+    // Rendered through a portal: the runner sets `container-type`, which
+    // establishes a containing block for positioned descendants, so an
+    // in-tree overlay would be trapped inside the quiz box instead of
+    // covering the viewport.
+    return createPortal(
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            role="presentation"
+            onClick={onClose}
+        >
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="w-full max-w-md mx-4 rounded-2xl border border-border p-6"
+                className="w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl"
                 style={{ background: 'var(--quiz-bg-elevated)' }}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Confirm quiz submission"
+                onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex items-start justify-between mb-4">
                     <h3 className="text-lg font-bold" style={{ color: 'var(--quiz-text-primary)' }}>
@@ -180,7 +205,8 @@ function SubmitModal({
                     </Button>
                 </div>
             </motion.div>
-        </div>
+        </div>,
+        document.body,
     )
 }
 
@@ -202,6 +228,37 @@ export function QuizContent({
     const [sequenceChecks, setSequenceChecks] = useState<Record<number, number>>({}) // slot → value
     const [flagged, setFlagged] = useState<Set<number>>(new Set())     // slot numbers
     const [showSubmitModal, setShowSubmitModal] = useState(false)
+
+    // Timer must be driven from the top level (hooks cannot live below the
+    // phase-dependent early returns). It idles harmlessly outside an attempt.
+    const timer = useQuizTimer(timelimit, state.phase === 'in_progress' ? state.timeStart : 0)
+
+    // Arrow-key paging between questions. Deliberately limited to navigation:
+    // answer selection stays on the option buttons themselves, which already
+    // handle Enter/Space natively and keep the save logic in one place.
+    useEffect(() => {
+        if (state.phase !== 'in_progress' || showSubmitModal) return
+        const lastIndex = state.questions.length - 1
+
+        const onKey = (e: KeyboardEvent) => {
+            if (e.metaKey || e.ctrlKey || e.altKey) return
+            const el = e.target as HTMLElement | null
+            if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+
+            if (e.key === 'ArrowLeft') {
+                setCurrentQuestionIndex((i) => Math.max(0, i - 1))
+            } else if (e.key === 'ArrowRight') {
+                setCurrentQuestionIndex((i) => Math.min(lastIndex, i + 1))
+            } else {
+                return
+            }
+            e.preventDefault()
+        }
+
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [state, showSubmitModal])
+
     // Load start screen data
     useEffect(() => {
         if (state.phase !== 'idle') return
@@ -1009,7 +1066,7 @@ export function QuizContent({
         )
     }
 
-    // ─── Render: In Progress (3-Panel Layout) ──────────────────────────────
+    // ─── Render: In Progress ───────────────────────────────────────────────
 
     if (state.phase !== 'in_progress') return null
 
@@ -1021,9 +1078,15 @@ export function QuizContent({
     const selectedValue = answers[currentQ.slot]
     const isFlagged = flagged.has(currentQ.slot)
     const isAnswered = selectedValue !== undefined
+    const progressPct = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0
+    const isLastQuestion = currentQuestionIndex === totalQuestions - 1
+    const visibleOptions = currentQ.options.filter(
+        (opt) => !opt.label.toLowerCase().includes('clear my choice')
+    )
+    const answersLabelId = `quiz-answers-label-${currentQ.slot}`
 
     return (
-        <div className="relative">
+        <>
             <SubmitModal
                 open={showSubmitModal}
                 onClose={() => setShowSubmitModal(false)}
@@ -1032,81 +1095,72 @@ export function QuizContent({
                 totalCount={totalQuestions}
             />
 
-            <div className="flex flex-col lg:grid lg:grid-cols-[200px_1fr_240px] gap-4 lg:gap-5">
-                {/* ── LEFT PANEL: Question Meta ──────────────────────────────── */}
-                <div className="hidden lg:flex flex-col gap-4 rounded-xl border p-4"
-                    style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-card)' }}>
-                    <div>
-                        <p className="text-2xl font-bold" style={{ color: 'var(--quiz-text-primary)' }}>
-                            Question {currentQ.number}
-                        </p>
-                        <div className="h-px mt-3" style={{ background: 'var(--quiz-border-subtle)' }} />
-                    </div>
+            {/* `.quiz-runner` owns the container query: every breakpoint below
+                responds to the runner's own width, not the viewport's. */}
+            <div className="quiz-runner">
+                <div className="quiz-layout">
+                    {/* ── MAIN COLUMN: question & answers ─────────────────── */}
+                    <div className="quiz-area-main">
+                        {/* Header strip. Replaces the old fixed 200px meta rail —
+                            same information, none of the horizontal budget. */}
+                        <div className="quiz-qhead">
+                            <h3 className="quiz-qhead-title">
+                                Question {currentQ.number}
+                                <span
+                                    className="ml-2 text-sm font-medium"
+                                    style={{ color: 'var(--quiz-text-muted)' }}
+                                >
+                                    of {totalQuestions}
+                                </span>
+                            </h3>
 
-                    <div>
-                        <p className="quiz-meta-label">STATUS</p>
-                        <p className="text-sm mt-1 flex items-center gap-1.5"
-                            style={{
-                                color: isAnswered
-                                    ? 'var(--quiz-accent-success)'
-                                    : 'var(--quiz-text-secondary)',
-                            }}>
-                            {isAnswered && <CheckCircle2 className="h-3.5 w-3.5" />}
-                            {isAnswered ? 'Answered' : 'Not answered'}
-                        </p>
-                    </div>
+                            <span className={cn('quiz-chip', isAnswered && 'is-answered')}>
+                                {isAnswered && <CheckCircle2 className="h-3.5 w-3.5" />}
+                                {isAnswered ? 'Answered' : 'Not answered'}
+                            </span>
 
-                    <div>
-                        <p className="quiz-meta-label">WEIGHTING</p>
-                        <p className="text-sm mt-1" style={{ color: 'var(--quiz-text-secondary)' }}>
-                            Marked out of {currentQ.maxMark.toFixed(2)}
-                        </p>
-                    </div>
+                            <span className="quiz-chip">
+                                {currentQ.maxMark.toFixed(2)} {currentQ.maxMark === 1 ? 'mark' : 'marks'}
+                            </span>
 
-                    <button
-                        onClick={() => toggleFlag(currentQ.slot)}
-                        className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg border transition-all mt-auto"
-                        style={{
-                            borderColor: isFlagged ? 'var(--quiz-accent-warning)' : 'var(--quiz-border-subtle)',
-                            color: isFlagged ? 'var(--quiz-accent-warning)' : 'var(--quiz-text-muted)',
-                        }}
-                        aria-label={isFlagged ? 'Unflag question' : 'Flag question'}
-                    >
-                        <Flag className="h-3.5 w-3.5" />
-                        {isFlagged ? 'Flagged' : 'Flag'}
-                    </button>
-                </div>
+                            <span
+                                className={cn(
+                                    'quiz-chip quiz-head-timer',
+                                    !timer.unlimited && timer.isLow && 'is-urgent'
+                                )}
+                                aria-live={timer.unlimited ? undefined : 'polite'}
+                            >
+                                <Clock className="h-3.5 w-3.5" />
+                                <span className="tabular-nums">{timer.label}</span>
+                            </span>
 
-                {/* ── CENTER PANEL: Question & Answers ────────────────────────── */}
-                <div className="flex flex-col gap-4">
-                    {/* Mobile question header */}
-                    <div className="lg:hidden flex items-center justify-between">
-                        <p className="text-lg font-bold" style={{ color: 'var(--quiz-text-primary)' }}>
-                            Question {currentQ.number} of {totalQuestions}
-                        </p>
-                        <button
-                            onClick={() => toggleFlag(currentQ.slot)}
-                            className="p-2 rounded-lg"
-                            style={{ color: isFlagged ? 'var(--quiz-accent-warning)' : 'var(--quiz-text-muted)' }}
-                        >
-                            <Flag className="h-4 w-4" />
-                        </button>
-                    </div>
+                            <button
+                                type="button"
+                                onClick={() => toggleFlag(currentQ.slot)}
+                                className={cn('quiz-chip', isFlagged && 'is-flagged')}
+                                aria-pressed={isFlagged}
+                                aria-label={
+                                    isFlagged
+                                        ? 'Remove flag from this question'
+                                        : 'Flag this question for review'
+                                }
+                            >
+                                <Flag className={cn('h-3.5 w-3.5', isFlagged && 'fill-current')} />
+                                {isFlagged ? 'Flagged' : 'Flag'}
+                            </button>
+                        </div>
 
-                    {/* Question text */}
-                    <div className="rounded-xl p-6" style={{ background: 'var(--quiz-bg-elevated)' }}>
+                        {/* Question text */}
                         {currentQ.parsed && currentQ.questionText ? (
                             <div
-                                className="text-lg font-medium leading-relaxed"
-                                style={{ color: 'var(--quiz-text-primary)', letterSpacing: '-0.02em' }}
+                                className="quiz-question-card"
                                 dangerouslySetInnerHTML={{
                                     __html: DOMPurify.sanitize(currentQ.questionText),
                                 }}
                             />
                         ) : (
                             <div
-                                className="prose prose-invert max-w-none text-sm"
-                                style={{ color: 'var(--quiz-text-primary)' }}
+                                className="quiz-question-card prose prose-invert max-w-none"
                                 dangerouslySetInnerHTML={{
                                     __html: DOMPurify.sanitize(currentQ.rawHtml, {
                                         USE_PROFILES: { html: true },
@@ -1116,221 +1170,271 @@ export function QuizContent({
                                 }}
                             />
                         )}
-                    </div>
 
-                    {/* Answer options */}
-                    {currentQ.parsed && currentQ.options.length > 0 && (
-                        <div className="flex flex-col gap-3">
-                            <p className="text-xs italic" style={{ color: 'var(--quiz-text-muted)' }}>
-                                Question {currentQ.number} Answer
-                            </p>
+                        {/* Answer options */}
+                        {currentQ.parsed && visibleOptions.length > 0 && (
+                            <div className="flex flex-col gap-3">
+                                <p
+                                    id={answersLabelId}
+                                    className="text-xs"
+                                    style={{ color: 'var(--quiz-text-muted)' }}
+                                >
+                                    Select one answer
+                                </p>
 
-                            {currentQ.options
-                                .filter(opt => !opt.label.toLowerCase().includes('clear my choice'))
-                                .map((option) => {
-                                const isSelected = selectedValue === option.value
+                                <div
+                                    className="quiz-options"
+                                    role="radiogroup"
+                                    aria-labelledby={answersLabelId}
+                                >
+                                    {visibleOptions.map((option) => {
+                                        const isSelected = selectedValue === option.value
 
-                                return (
-                                    <button
-                                        key={option.value}
-                                        className={cn('quiz-option', isSelected && 'selected')}
-                                        onClick={() => handleSelectAnswer(currentQ, option.value)}
-                                        role="radio"
-                                        aria-checked={isSelected}
-                                        aria-label={`Option ${option.letter}: ${option.label}`}
-                                    >
-                                        <span className="option-letter">
-                                            {option.letter}
-                                        </span>
-                                        <span className="flex-1">{option.label}</span>
-                                    </button>
-                                )
-                            })}
+                                        return (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                className={cn('quiz-option', isSelected && 'selected')}
+                                                onClick={() => handleSelectAnswer(currentQ, option.value)}
+                                                role="radio"
+                                                aria-checked={isSelected}
+                                            >
+                                                <span className="option-letter" aria-hidden="true">
+                                                    {option.letter}
+                                                </span>
+                                                <span className="quiz-option-text">{option.label}</span>
+                                                <CheckCircle2
+                                                    className="quiz-option-check h-5 w-5"
+                                                    aria-hidden="true"
+                                                />
+                                            </button>
+                                        )
+                                    })}
+                                </div>
 
-                            {/* Clear choice */}
-                            <AnimatePresence>
-                                {isAnswered && (
-                                    <motion.button
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.15 }}
-                                        onClick={() => handleClearChoice(currentQ)}
-                                        className="text-xs py-1 self-start hover:underline underline-offset-2 transition-colors"
-                                        style={{ color: 'var(--quiz-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
-                                    >
-                                        Clear my choice
-                                    </motion.button>
-                                )}
-                            </AnimatePresence>
-                        </div>
-                    )}
-
-                    {/* Short answer / numerical input */}
-                    {currentQ.parsed && currentQ.type === 'shortanswer' && (
-                        <div className="flex flex-col gap-2">
-                            <p className="text-xs italic" style={{ color: 'var(--quiz-text-muted)' }}>
-                                Type your answer below
-                            </p>
-                            <input
-                                type="text"
-                                value={selectedValue ?? ''}
-                                onChange={(e) => handleSelectAnswer(currentQ, e.target.value)}
-                                placeholder="Your answer..."
-                                className="w-full px-4 py-3 rounded-lg border text-sm"
-                                style={{
-                                    background: 'var(--quiz-bg-card)',
-                                    borderColor: 'var(--quiz-border-subtle)',
-                                    color: 'var(--quiz-text-primary)',
-                                }}
-                            />
-                        </div>
-                    )}
-
-                    {/* Essay textarea */}
-                    {currentQ.parsed && currentQ.type === 'essay' && (
-                        <div className="flex flex-col gap-2">
-                            <p className="text-xs italic" style={{ color: 'var(--quiz-text-muted)' }}>
-                                Write your response below
-                            </p>
-                            <textarea
-                                value={selectedValue ?? ''}
-                                onChange={(e) => handleSelectAnswer(currentQ, e.target.value)}
-                                placeholder="Your response..."
-                                rows={6}
-                                className="w-full px-4 py-3 rounded-lg border text-sm resize-y"
-                                style={{
-                                    background: 'var(--quiz-bg-card)',
-                                    borderColor: 'var(--quiz-border-subtle)',
-                                    color: 'var(--quiz-text-primary)',
-                                }}
-                            />
-                        </div>
-                    )}
-
-                    {/* Previous / Next navigation */}
-                    <div className="flex items-center justify-between gap-2 pt-4 border-t" style={{ borderColor: 'var(--quiz-border-subtle)' }}>
-                        <Button
-                            variant="outline"
-                            disabled={currentQuestionIndex === 0}
-                            onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
-                            className="gap-2"
-                        >
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                            Previous
-                        </Button>
-
-                        <span className="text-xs tabular-nums" style={{ color: 'var(--quiz-text-muted)' }}>
-                            {currentQuestionIndex + 1} / {totalQuestions}
-                        </span>
-
-                        {currentQuestionIndex < totalQuestions - 1 ? (
-                            <Button
-                                onClick={() => setCurrentQuestionIndex((i) => Math.min(totalQuestions - 1, i + 1))}
-                                className="gap-2 text-white"
-                                style={{ background: 'var(--quiz-accent-primary)' }}
-                            >
-                                Next
-                                <ChevronRight className="h-3.5 w-3.5" />
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={() => setShowSubmitModal(true)}
-                                className="gap-2"
-                                style={{ background: 'var(--quiz-accent-primary)', color: 'white' }}
-                            >
-                                Finish
-                                <ChevronRight className="h-3.5 w-3.5" />
-                            </Button>
+                                {/* Clear choice */}
+                                <AnimatePresence>
+                                    {isAnswered && (
+                                        <motion.button
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.15 }}
+                                            onClick={() => handleClearChoice(currentQ)}
+                                            className="text-xs py-1 self-start hover:underline underline-offset-2 transition-colors"
+                                            style={{ color: 'var(--quiz-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+                                        >
+                                            Clear my choice
+                                        </motion.button>
+                                    )}
+                                </AnimatePresence>
+                            </div>
                         )}
-                    </div>
-                </div>
 
-                {/* ── RIGHT PANEL: Timer & Navigator ──────────────────────────── */}
-                <div className="flex flex-col gap-4">
-                    {/* Timer */}
-                    <div className="rounded-xl border p-4"
-                        style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-card)' }}>
-                        <QuizTimer timelimit={timelimit} timeStart={state.timeStart} />
-                    </div>
+                        {/* Short answer / numerical input */}
+                        {currentQ.parsed && currentQ.type === 'shortanswer' && (
+                            <div className="flex flex-col gap-2">
+                                <label
+                                    htmlFor={`quiz-short-${currentQ.slot}`}
+                                    className="text-xs"
+                                    style={{ color: 'var(--quiz-text-muted)' }}
+                                >
+                                    Type your answer below
+                                </label>
+                                <input
+                                    id={`quiz-short-${currentQ.slot}`}
+                                    type="text"
+                                    value={selectedValue ?? ''}
+                                    onChange={(e) => handleSelectAnswer(currentQ, e.target.value)}
+                                    placeholder="Your answer..."
+                                    className="w-full px-4 py-3 rounded-lg border text-sm"
+                                    style={{
+                                        background: 'var(--quiz-bg-card)',
+                                        borderColor: 'var(--quiz-border-subtle)',
+                                        color: 'var(--quiz-text-primary)',
+                                    }}
+                                />
+                            </div>
+                        )}
 
-                    {/* Question Navigator */}
-                    <div className="rounded-xl border p-4"
-                        style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-card)' }}>
-                        <p className="quiz-meta-label mb-3">QUESTION NAVIGATOR</p>
+                        {/* Essay textarea */}
+                        {currentQ.parsed && currentQ.type === 'essay' && (
+                            <div className="flex flex-col gap-2">
+                                <label
+                                    htmlFor={`quiz-essay-${currentQ.slot}`}
+                                    className="text-xs"
+                                    style={{ color: 'var(--quiz-text-muted)' }}
+                                >
+                                    Write your response below
+                                </label>
+                                <textarea
+                                    id={`quiz-essay-${currentQ.slot}`}
+                                    value={selectedValue ?? ''}
+                                    onChange={(e) => handleSelectAnswer(currentQ, e.target.value)}
+                                    placeholder="Your response..."
+                                    rows={8}
+                                    className="w-full px-4 py-3 rounded-lg border text-sm resize-y"
+                                    style={{
+                                        background: 'var(--quiz-bg-card)',
+                                        borderColor: 'var(--quiz-border-subtle)',
+                                        color: 'var(--quiz-text-primary)',
+                                    }}
+                                />
+                            </div>
+                        )}
 
-                        <div className="grid grid-cols-5 gap-2">
-                            {state.questions.map((q, idx) => {
-                                const isCurrentNav = idx === currentQuestionIndex
-                                const isAnsweredNav = answers[q.slot] !== undefined
-                                const isFlaggedNav = flagged.has(q.slot)
+                        {/* Previous / Next navigation */}
+                        <div className="quiz-footer-nav">
+                            <Button
+                                variant="outline"
+                                disabled={currentQuestionIndex === 0}
+                                onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
+                                className="gap-2"
+                            >
+                                <ChevronLeft className="h-3.5 w-3.5" />
+                                Previous
+                            </Button>
 
-                                let navClass = 'quiz-nav-btn'
-                                if (isCurrentNav) navClass += ' current'
-                                else if (isFlaggedNav) navClass += ' flagged'
-                                else if (isAnsweredNav) navClass += ' answered'
+                            <span
+                                className="text-xs tabular-nums"
+                                style={{ color: 'var(--quiz-text-muted)' }}
+                            >
+                                {currentQuestionIndex + 1} / {totalQuestions}
+                            </span>
 
-                                return (
-                                    <button
-                                        key={q.slot}
-                                        className={navClass}
-                                        onClick={() => setCurrentQuestionIndex(idx)}
-                                        aria-label={`Go to question ${q.number}`}
-                                        aria-current={isCurrentNav ? 'step' : undefined}
-                                    >
-                                        {q.number}
-                                    </button>
-                                )
-                            })}
+                            {!isLastQuestion ? (
+                                <Button
+                                    onClick={() =>
+                                        setCurrentQuestionIndex((i) => Math.min(totalQuestions - 1, i + 1))
+                                    }
+                                    className="gap-2 text-white"
+                                    style={{ background: 'var(--quiz-accent-primary)' }}
+                                >
+                                    Next
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={() => setShowSubmitModal(true)}
+                                    className="gap-2 text-white"
+                                    style={{ background: 'var(--quiz-accent-success)' }}
+                                >
+                                    Finish
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                </Button>
+                            )}
                         </div>
-
-                        {/* Legend */}
-                        <div className="flex flex-wrap gap-3 mt-4 text-[10px]" style={{ color: 'var(--quiz-text-muted)' }}>
-                            <span className="flex items-center gap-1">
-                                <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--quiz-accent-primary)' }} />
-                                Current
-                            </span>
-                            <span className="flex items-center gap-1">
-                                <span className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: 'var(--quiz-accent-primary)' }} />
-                                Answered
-                            </span>
-                            <span className="flex items-center gap-1">
-                                <span className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: 'var(--quiz-border-subtle)' }} />
-                                Pending
-                            </span>
-                            <span className="flex items-center gap-1">
-                                <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--quiz-accent-warning)' }} />
-                                Flagged
-                            </span>
-                        </div>
                     </div>
 
-                    {/* Submit button */}
-                    <Button
-                        onClick={() => setShowSubmitModal(true)}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold"
-                    >
-                        Submit Quiz
-                    </Button>
-
-                    {/* Mobile: Timer (shown above grid on small screens) */}
-                    <div className="lg:hidden rounded-xl border p-4"
-                        style={{ borderColor: 'var(--quiz-border-subtle)', background: 'var(--quiz-bg-card)' }}>
-                        <p className="text-xs mb-1 text-center" style={{ color: 'var(--quiz-text-muted)' }}>
-                            {answeredCount} of {totalQuestions} answered
-                        </p>
-                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--quiz-bg-elevated)' }}>
-                            <div
-                                className="h-full rounded-full transition-all"
+                    {/* ── SIDE RAIL: timer, progress, navigator, submit ────── */}
+                    <aside className="quiz-area-rail">
+                        {/* Wide-only clock; narrow layouts show it in the header
+                            strip above. Both read the same shared ticker. */}
+                        <div className="quiz-rail-card quiz-rail-timer">
+                            <p className="quiz-meta-label mb-1 text-center">TIME REMAINING</p>
+                            <p
+                                className={cn(
+                                    'text-center text-2xl font-bold font-mono tabular-nums',
+                                    !timer.unlimited && timer.isLow && 'timer-warning'
+                                )}
                                 style={{
-                                    width: `${(answeredCount / totalQuestions) * 100}%`,
-                                    background: 'var(--quiz-accent-primary)',
+                                    color: !timer.unlimited && timer.isLow
+                                        ? undefined
+                                        : 'var(--quiz-text-primary)',
                                 }}
-                            />
+                                aria-live={timer.unlimited ? undefined : 'polite'}
+                            >
+                                {timer.label}
+                            </p>
                         </div>
-                    </div>
+
+                        {/* Progress */}
+                        <div className="quiz-rail-card">
+                            <div className="flex items-center justify-between mb-2 gap-2">
+                                <p className="quiz-meta-label">PROGRESS</p>
+                                <span
+                                    className="text-xs tabular-nums"
+                                    style={{ color: 'var(--quiz-text-secondary)' }}
+                                >
+                                    {answeredCount}/{totalQuestions}
+                                </span>
+                            </div>
+                            <div
+                                className="quiz-progress-track"
+                                role="progressbar"
+                                aria-valuenow={answeredCount}
+                                aria-valuemin={0}
+                                aria-valuemax={totalQuestions}
+                                aria-label="Questions answered"
+                            >
+                                <div className="quiz-progress-fill" style={{ width: `${progressPct}%` }} />
+                            </div>
+                        </div>
+
+                        {/* Question Navigator */}
+                        <div className="quiz-rail-card">
+                            <p className="quiz-meta-label mb-3">QUESTION NAVIGATOR</p>
+
+                            <div className="quiz-nav-grid">
+                                {state.questions.map((q, idx) => {
+                                    const isCurrentNav = idx === currentQuestionIndex
+                                    const isAnsweredNav = answers[q.slot] !== undefined
+                                    const isFlaggedNav = flagged.has(q.slot)
+
+                                    let navClass = 'quiz-nav-btn'
+                                    if (isCurrentNav) navClass += ' current'
+                                    else if (isFlaggedNav) navClass += ' flagged'
+                                    else if (isAnsweredNav) navClass += ' answered'
+
+                                    return (
+                                        <button
+                                            key={q.slot}
+                                            type="button"
+                                            className={navClass}
+                                            onClick={() => setCurrentQuestionIndex(idx)}
+                                            aria-label={`Go to question ${q.number}${
+                                                isAnsweredNav ? ' (answered)' : ' (not answered)'
+                                            }${isFlaggedNav ? ', flagged' : ''}`}
+                                            aria-current={isCurrentNav ? 'step' : undefined}
+                                        >
+                                            {q.number}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+
+                            {/* Legend */}
+                            <div className="quiz-legend">
+                                <span className="quiz-legend-item">
+                                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--quiz-accent-primary)' }} />
+                                    Current
+                                </span>
+                                <span className="quiz-legend-item">
+                                    <span className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: 'var(--quiz-accent-primary)' }} />
+                                    Answered
+                                </span>
+                                <span className="quiz-legend-item">
+                                    <span className="w-2.5 h-2.5 rounded-full border" style={{ borderColor: 'var(--quiz-border-subtle)' }} />
+                                    Pending
+                                </span>
+                                <span className="quiz-legend-item">
+                                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--quiz-accent-warning)' }} />
+                                    Flagged
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Submit */}
+                        <Button
+                            onClick={() => setShowSubmitModal(true)}
+                            className="w-full text-white font-semibold"
+                            style={{ background: 'var(--quiz-accent-success)' }}
+                        >
+                            Submit Quiz
+                        </Button>
+                    </aside>
                 </div>
             </div>
-        </div>
+        </>
     )
 }

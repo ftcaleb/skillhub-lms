@@ -260,7 +260,9 @@ function QuizReaderContent({ mod, courseId, onCompletionUpdated }: {
     }
 
     return (
-        <div className="max-w-2xl">
+        // Full width on purpose: the runner is container-query driven and
+        // lays out its own columns. Clamping here starved the answer column.
+        <div className="w-full">
             <QuizContent
                 quizId={quiz.id}
                 quizName={mod.name}

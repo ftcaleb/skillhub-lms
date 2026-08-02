@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
 import { AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useCourseData } from '@/components/course/course-data-context'
 import { ReaderNav } from '@/components/course/reader-nav'
 import { ReaderContent } from '@/components/course/reader-content'
@@ -147,12 +148,20 @@ export function MaterialReaderView({ courseId, cmid }: MaterialReaderViewProps) 
 
     if (!currentModule) return null
 
+    // Interactive modules (quiz) render their own multi-column layout, so they
+    // get a wider shell and skip the prose reading measure. Everything else
+    // stays on the standard 1280px reading shell.
+    const isInteractiveModule = currentModule.modname === 'quiz'
+
     return (
         <motion.div
             initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="mx-auto w-full max-w-[1280px] px-8 sm:px-12 md:px-16 py-8 flex flex-col gap-6 min-h-[calc(100vh-6rem)] pb-12"
+            className={cn(
+                'mx-auto w-full px-8 sm:px-12 md:px-16 py-8 flex flex-col gap-6 min-h-[calc(100vh-6rem)] pb-12',
+                isInteractiveModule ? 'max-w-[1440px]' : 'max-w-[1280px]'
+            )}
         >
             {/* Top Navigation Row */}
             <ReaderNav
@@ -217,8 +226,12 @@ export function MaterialReaderView({ courseId, cmid }: MaterialReaderViewProps) 
                         style={{ borderTop: '1px solid var(--border-subtle)' }}
                     />
 
-                    {/* Content Body */}
-                    <div className="w-full max-w-[72ch]">
+                    {/* Content Body.
+                        Prose modules keep the 72ch reading measure. Interactive
+                        modules (quiz) lay out their own multi-column UI and need
+                        the full surface — the measure was collapsing the quiz
+                        answer column to roughly 160px. */}
+                    <div className={cn('w-full', !isInteractiveModule && 'max-w-[72ch]')}>
                         <ReaderContent
                             module={currentModule}
                             courseId={courseId}

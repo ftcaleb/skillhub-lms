@@ -299,28 +299,206 @@ main > *:nth-child(4) { animation-delay: 0.2s; }
   margin: 16px 0;
 }
 
+/* ── Quiz runner shell ────────────────────────────────────────────────────
+ * The quiz runner is embedded in host surfaces of very different widths: the
+ * reader body (~810px), the module renderer (~600px), and full-width pages.
+ * It therefore sizes itself against its OWN inline width via container
+ * queries rather than the viewport. Viewport breakpoints (`lg:`) were firing
+ * at 1024px of *screen* while the runner sat in a 672px *box*, forcing a
+ * 200px + 240px rail pair into it and collapsing the answer column to ~160px.
+ * ──────────────────────────────────────────────────────────────────────── */
+.quiz-runner {
+  position: relative;
+  width: 100%;
+  container-type: inline-size;
+  container-name: quiz;
+}
+
+.quiz-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.quiz-area-main {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.quiz-area-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.quiz-rail-card {
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  padding: 16px;
+}
+
+/* The timer lives inline in the question header when the runner is narrow,
+   and in the side rail once there is room for one. Exactly one is ever
+   visible; both read from a single shared ticker in React. */
+.quiz-rail-timer { display: none; }
+.quiz-head-timer { display: inline-flex; }
+
+@container quiz (min-width: 720px) {
+  .quiz-layout {
+    grid-template-columns: minmax(0, 1fr) clamp(232px, 26%, 288px);
+    column-gap: 24px;
+    row-gap: 24px;
+  }
+  /* 88px clears the floating navbar, matching the reader sidebar offset. */
+  .quiz-area-rail {
+    position: sticky;
+    top: 88px;
+  }
+  .quiz-rail-timer { display: block; }
+  .quiz-head-timer { display: none; }
+}
+
+/* ── Question header strip ────────────────────────────────────────────── */
+.quiz-qhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.quiz-qhead-title {
+  margin-right: auto;
+  font-family: 'Sora', sans-serif;
+  font-size: clamp(1.125rem, 2.6cqi, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.quiz-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.quiz-chip.is-answered {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.08);
+  color: var(--glow-green);
+}
+.quiz-chip.is-flagged {
+  border-color: rgba(249, 115, 22, 0.45);
+  background: rgba(249, 115, 22, 0.08);
+  color: var(--glow-accent);
+}
+.quiz-chip.is-urgent {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+button.quiz-chip {
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+button.quiz-chip:hover {
+  border-color: var(--border-glow);
+  color: var(--text-primary);
+}
+button.quiz-chip.is-flagged:hover {
+  border-color: var(--glow-accent);
+  color: var(--glow-accent);
+}
+button.quiz-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.35);
+}
+
+/* ── Question body ────────────────────────────────────────────────────── */
+.quiz-question-card {
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  padding: clamp(16px, 3cqi, 28px);
+  color: var(--text-primary);
+  font-size: clamp(1rem, 1.9cqi, 1.1875rem);
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+}
+.quiz-question-card > :first-child { margin-top: 0; }
+.quiz-question-card > :last-child { margin-bottom: 0; }
+.quiz-question-card img,
+.quiz-question-card video {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.quiz-question-card table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 /* ── Quiz option styles ───────────────────────────────────────────────── */
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .quiz-option {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 15px 20px;
+  width: 100%;
+  min-height: 56px;
+  padding: 13px 18px;
   border-radius: 12px;
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);
   cursor: pointer;
-  transition: all 0.15s ease;
-  width: 100%;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
   text-align: left;
   color: var(--text-primary);
   font-family: 'DM Sans', sans-serif;
   font-size: 0.9375rem;
-  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.quiz-option-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .quiz-option:hover {
   border-color: rgba(14, 165, 233, 0.4);
   background: rgba(14, 165, 233, 0.05);
   box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.1);
+  transform: translateX(2px);
+}
+.quiz-option:focus-visible {
+  outline: none;
+  border-color: var(--glow-primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.35);
 }
 .quiz-option.selected {
   border-color: var(--glow-primary);
@@ -339,6 +517,7 @@ main > *:nth-child(4) { animation-delay: 0.2s; }
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.8125rem;
+  text-transform: lowercase;
   flex-shrink: 0;
   transition: all 0.15s ease;
 }
@@ -347,11 +526,39 @@ main > *:nth-child(4) { animation-delay: 0.2s; }
   color: var(--glow-primary);
   background: rgba(14, 165, 233, 0.15);
 }
+.quiz-option-check {
+  flex-shrink: 0;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  color: var(--glow-primary);
+}
+.quiz-option.selected .quiz-option-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ── Question footer navigation ───────────────────────────────────────── */
+.quiz-footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
 
 /* ── Quiz question navigator grid ─────────────────────────────────────── */
+.quiz-nav-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .quiz-nav-btn {
-  width: 38px;
-  height: 38px;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -368,6 +575,10 @@ main > *:nth-child(4) { animation-delay: 0.2s; }
 .quiz-nav-btn:hover {
   border-color: var(--border-glow);
 }
+.quiz-nav-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.35);
+}
 .quiz-nav-btn.current {
   background: var(--glow-primary);
   border-color: var(--glow-primary);
@@ -383,6 +594,47 @@ main > *:nth-child(4) { animation-delay: 0.2s; }
   border-color: rgba(249, 115, 22, 0.5);
   color: var(--glow-accent);
   background: rgba(249, 115, 22, 0.08);
+}
+
+.quiz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 14px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.quiz-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* ── Quiz progress meter ──────────────────────────────────────────────── */
+.quiz-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.quiz-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--glow-primary), var(--glow-purple));
+  transition: width 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-option,
+  .quiz-nav-btn,
+  .quiz-option-check,
+  .quiz-progress-fill {
+    transition: none;
+  }
+  .quiz-option:hover {
+    transform: none;
+  }
 }
 
 /* ── Moodle HTML dark-themed table styles ─────────────────────────────── */

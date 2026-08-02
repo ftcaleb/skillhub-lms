@@ -36,6 +36,28 @@ export interface ParsedQuestion {
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz'
 
 /**
+ * Moodle renders its own answer marker inside each option label
+ * (`<span class="answernumber">a. </span>`). We render that marker ourselves
+ * as the letter badge, so strip it to avoid "a.  a. Option text".
+ *
+ * Only strips when the prefix matches the letter/number we are about to show
+ * for this index, so genuine content like "b. tree is the answer" survives.
+ */
+function stripAnswerNumber(label: string, index: number): string {
+  const letter = LETTERS[index]
+  const alternatives = [letter, letter?.toUpperCase(), String(index + 1)].filter(Boolean)
+
+  for (const token of alternatives) {
+    // Matches "a. ", "a) ", "(a) ", "a - " at the start of the label.
+    const pattern = new RegExp(`^\\(?${token}\\)?\\s*[.)\\-:]\\s+|^\\(${token}\\)\\s+`)
+    if (pattern.test(label)) {
+      return label.replace(pattern, '').trim()
+    }
+  }
+  return label
+}
+
+/**
  * Parse a Moodle question HTML blob into structured data.
  * 
  * Moodle question HTML structure (multichoice example):
@@ -139,13 +161,21 @@ export function parseQuestionHtml(
             if (!inputName) inputName = name
             const checked = inputEl.checked
 
+            // Read an element's text with Moodle's own answer marker removed,
+            // so the badge letter we render is not duplicated in the label.
+            const readLabel = (el: Element): string => {
+              const clone = el.cloneNode(true) as Element
+              clone.querySelectorAll('.answernumber').forEach((n) => n.remove())
+              return clone.textContent?.trim() ?? ''
+            }
+
             // Determine label text by aria-labelledby or nearby answer label
             let labelText = ''
             const labelledBy = input.getAttribute('aria-labelledby')
             if (labelledBy) {
               const labelEl = doc.getElementById(labelledBy)
               if (labelEl) {
-                labelText = labelEl.textContent?.trim() ?? ''
+                labelText = readLabel(labelEl)
               }
             }
 
@@ -155,7 +185,7 @@ export function parseQuestionHtml(
               if (answerWrapper) {
                 const labelEl = answerWrapper.querySelector('.answer, [data-region="answer-label"], label')
                 if (labelEl) {
-                  labelText = labelEl.textContent?.trim() ?? ''
+                  labelText = readLabel(labelEl)
                 }
               }
             }
@@ -170,7 +200,7 @@ export function parseQuestionHtml(
 
             parsedOptions.push({
               value,
-              label: labelText.replace(/\s+/g, ' ').trim(),
+              label: stripAnswerNumber(labelText.replace(/\s+/g, ' ').trim(), optionIndex),
               letter: LETTERS[optionIndex] ?? String(optionIndex + 1),
               checked,
             })
@@ -255,10 +285,10 @@ export function parseQuestionHtml(
       while ((altMatch = altRegex.exec(html)) !== null) {
         if (!result.inputName) result.inputName = altMatch[1]
         const checked = altMatch[3].includes('checked')
-        const text = altMatch[4].replace(/<[^>]*>/g, '').trim()
+        const text = altMatch[4].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
         result.options.push({
           value: altMatch[2],
-          label: text || `Option ${idx + 1}`,
+          label: text ? stripAnswerNumber(text, idx) : `Option ${idx + 1}`,
           letter: LETTERS[idx] ?? String(idx + 1),
           checked,
         })
